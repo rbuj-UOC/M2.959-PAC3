@@ -1,0 +1,46 @@
+{
+    "cSpell.language": "ca,en",
+    "editor.formatOnSave": true,
+    "[json]": {
+        "editor.formatOnSave": true
+    },
+    "[markdown]": {
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint",
+        "editor.formatOnSave": true
+    },
+    "editor.codeActionsOnSave": {
+        "source.fixAll.markdownlint": "always"
+    },
+    "editor.rulers": [
+        80
+    ],
+    "r.rpath.mac": "${workspaceFolder}/.conda/bin/R",
+    "r.helpPanel.cacheIndexFiles": "Workspace",
+    "cSpell.words": [
+        "colour",
+        "descdist",
+        "fitdistrplus",
+        "fontface",
+        "ggbetweenstats",
+        "ggmosaic",
+        "ggobj",
+        "ggplot",
+        "ggsave",
+        "ggstatsplot",
+        "girafe",
+        "hjust",
+        "kable",
+        "knitr",
+        "lightgray",
+        "lognormal",
+        "lubridate",
+        "newpage",
+        "summarise",
+        "tidyverse",
+        "tipo",
+        "ungroup",
+        "vjust",
+        "wday",
+        "xlab"
+    ]
+}

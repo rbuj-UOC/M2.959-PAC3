@@ -1,274 +1,921 @@
 ---
-title: "Visual analytics of hotel bookings data"
-author: "Julià Minguillón"
-date: "April 2025"
+title: "Analítica visual de dades de reserves d'hotel"
+author: "Robert Buj"
+date: "23-12-2025"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    highlight: tango
 ---
+
+\newpage
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-NOTE: this tutorial uses R + RStudio + some R packages to show the potential
-of using data visualization for inspecting and analyzing a data set. We strongly
-recommend you to explore the following links:
+NOTA: aquest tutorial utilitza R + RStudio + alguns paquets de R per mostrar el
+potencial de l'ús de la visualització de dades per inspeccionar i analitzar un
+conjunt de dades. Recomanem explorar els següents enllaços:
 
-1) RStudio: https://posit.co/downloads/
-2) ggplot2: https://ggplot2.tidyverse.org/
-3) extensions: https://exts.ggplot2.tidyverse.org/gallery/
-4) ggmosaic: this package has been removed from CRAN, it is necessary to install
-and older version:
+1) RStudio: https://posit.co/downloads/  
+2) ggplot2: https://ggplot2.tidyverse.org/  
+3) extensions: https://exts.ggplot2.tidyverse.org/gallery/  
+4) ggmosaic: aquest paquet ha estat eliminat de CRAN, cal instal·lar-ne una
+versió antiga:
 
-Download and install RTools from "https://cran.rstudio.com/bin/windows/Rtools/rtools45/rtools.html"
+Baixeu i instal·leu RTools de "https://cran.rstudio.com/bin/windows/Rtools/rtools45/rtools.html"
 
-Download ggmosaic running install.packages( "ggmosaic", repos = c("https://haleyjeppson.r-universe.dev", "https://cloud.r-project.org")))
+Baixeu ggmosaic executant:  
+`install.packages("ggmosaic", repos = c("https://haleyjeppson.r-universe.dev", "https://cloud.r-project.org"))`
 
-## Load packages
+NOTA: si voleu utilitzar un entorn virtual creat amb conda per a aquest
+projecte, podeu seguir les instruccions del fitxer [README.md](README.md).
+
+NOTA: Si no voleu utilitzar l'entorn virtual i voleu editar i executar aquest
+fitxer Rmd directament a VSCode, canvieu el camí a l'executable R (RPath) per a
+la vostra plataforma. En la configuració proporcionada de VSCode (settings.json)
+el camí al fitxer R utilitza l'entorn virtual creat a la carpeta `.conda` a la
+base del directori del projecte en macos.
+`"r.rpath.mac": "${workspaceFolder}/.conda/bin/R"`
+
+## Càrrega dels paquets necessaris
 
 ```{r packages}
-library("ggmosaic")
-library("ggplot2")
-library("fitdistrplus")
-library("MASS")
-library("survival")
-library("ggstatsplot")
 library("tidyverse")
+library("fitdistrplus")
+# library("ggmosaic")
+library("ggstatsplot")
+library("ggplot2")
+library("kableExtra")
+library("MASS")
+library("reshape2")
+library("survival")
+library("scales")
 ```
 
-## Data loading and dimensions (N x M)
+## Conjunt de dades
 
-We read the dataset in CSV format, with 119,390 rows y 32 columns:
+```{r data_description, echo=FALSE}
+variables_info <- data.frame(
+    Variable = c(
+        "hotel",
+        "is_canceled",
+        "lead_time",
+        "arrival_date_year",
+        "arrival_date_month",
+        "arrival_date_week_number",
+        "arrival_date_day_of_month",
+        "stays_in_weekend_nights",
+        "stays_in_week_nights",
+        "adults",
+        "children",
+        "babies",
+        "meal",
+        "country",
+        "market_segment",
+        "distribution_channel",
+        "is_repeated_guest",
+        "previous_cancellations",
+        "previous_bookings_not_canceled",
+        "reserved_room_type",
+        "assigned_room_type",
+        "booking_changes",
+        "deposit_type",
+        "agent",
+        "company",
+        "days_in_waiting_list",
+        "customer_type",
+        "adr",
+        "required_car_parking_spaces",
+        "total_of_special_requests",
+        "reservation_status",
+        "reservation_status_date"
+    ),
+    Tipus = c(
+        "factor", # hotel
+        "factor", # is_canceled
+        "integer", # lead_time
+        "integer", # arrival_date_year
+        "integer", # arrival_date_month
+        "integer", # arrival_date_week_number
+        "integer", # arrival_date_day_of_month
+        "integer", # stays_in_weekend_nights
+        "integer", # stays_in_week_nights
+        "integer", # adults
+        "integer", # children
+        "integer", # babies
+        "factor", # meal
+        "factor", # country
+        "factor", # market_segment
+        "factor", # distribution_channel
+        "factor", # is_repeated_guest
+        "integer", # previous_cancellations
+        "integer", # previous_bookings_not_canceled
+        "factor", # reserved_room_type
+        "factor", # assigned_room_type
+        "integer", # booking_changes
+        "factor", # deposit_type
+        "factor", # agent
+        "factor", # company
+        "integer", # days_in_waiting_list
+        "factor", # customer_type
+        "numeric", # adr
+        "integer", # required_car_parking_spaces
+        "integer", # total_of_special_requests
+        "factor", # reservation_status
+        "date" # reservation_status_date
+    ),
+    Descripcio = c(
+        "Tipus d'hotel (ciutat o resort)", # hotel
+        "1 si la reserva es va cancel·lar, 0 en cas contrari", # is_canceled
+        "Nombre de dies entre la reserva i l'arribada", # lead_time
+        "Any d'arribada", # arrival_date_year
+        "Mes d'arribada, amb 12 categories: «January» a «December»", # arrival_date_month
+        "Setmana d'arribada de l'any", # arrival_date_week_number
+        "Dia del mes de l'arribada", # arrival_date_day_of_month
+        "Nombre de nits d'estada en cap de setmana", # stays_in_weekend_nights
+        "Nombre de nits d'estada entre setmana", # stays_in_week_nights
+        "Nombre d'adults", # adults
+        "Nombre de nens", # children
+        "Nombre de nadons", # babies
+        "Tipus de règim alimentari reservat. Tipus d'àpat reservat. Les categories són: Undefined/SC (sense regim alimentari); BB (Allotjament i esmorzar); HB (Mitja pensió amb l'esmorzar i un altre àpat, normalment sopar); FB (Pensió completa amb esmorzar, dinar i sopar)", # meal
+        "País de residència de l'hoste", # country
+        "Segment de mercat de l'hotel. «TA» significa «agents de viatges (Travel Agents)» i «TO» significa «operadors turístics (Tour Operators)»", # market_segment
+        "Canal de distribució utilitzat. El terme «TA» significa «agents de viatges (Travel Agents)» i «TO» significa «operadors turístics (Tour Operators)».", # distribution_channel
+        "1 si l'hoste és un client repetit, 0 en cas contrari", # is_repeated_guest
+        "Nombre de cancel·lacions anteriors per a aquest hoste", # previous_cancellations
+        "Nombre de reserves anteriors no cancel·lades per a aquest hoste", # previous_bookings_not_canceled
+        "Tipus d'habitació reservada", # reserved_room_type
+        "Tipus d'habitació assignada", # assigned_room_type
+        "Nombre de canvis en la reserva", # booking_changes
+        "Tipus de dipòsit realitzat. Hi ha 3 categories: «No Deposit»: sense dipòsit, «Non Refund»: no reemborsable, «Refundable»: reemborsable", # deposit_type
+        "Identificador de l'agent de viatges", # agent
+        "Identificador de l'empresa", # company
+        "Nombre de dies a la llista d'espera", # days_in_waiting_list
+        "Tipus de client. Tipus de reserva, assumint una de les quatre categories següents: Contract - quan la reserva té una assignació o un altre tipus de contracte associat; Group – quan la reserva està associada a un grup; Transient – quan la reserva no forma part d'un grup o contracte, i no està associada a altres reserves transitòries; Transient-party – quan la reserva és transitòria, però està associada almenys a una altra reserva transitòria", # customer_type
+        "Tarifa diària mitjana", # adr
+        "Nombre d'espais d'aparcament de cotxes requerits", # required_car_parking_spaces
+        "Nombre total de sol·licituds especials (per exemple, llit individual o pis alt)", # total_of_special_requests
+        "Estat final de la reserva. «Canceled»: el client ha cancel·lat la reserva; «Check-Out»: el client ha fet el check-in però ja ha marxat; «No-Show»: el client no ha fet el check-in i ha informat l'hotel del motiu. ", # reservation_status
+        "Data de l'estat final de la reserva" # reservation_status_date
+    )
+)
+# Mostrar la taula
+knitr::kable(variables_info,
+    caption = "Descripció i tipus de les variables"
+) |>
+    kableExtra::kable_styling(full_width = FALSE)
+```
+
+## Càrrega de dades i dimensions (N x M)
+
+Llegim el conjunt de dades en format CSV, amb 119.390 files i 32 columnes:
 
 ```{r load data}
-x=read.csv("hotel_bookings.csv", stringsAsFactors = T)
+x <- read.csv("data/hotel_bookings.csv", stringsAsFactors = TRUE)
 dim(x)
 ```
-## Data cleansing
 
-First, we'll inspect the data using the summary() function included in R.  You 
-can find an explanation of each variable in the article that describes this 
-dataset in detail, although the variable names are pretty much self-explanatory:
+El PMS va assegurar que no falten dades a les taules de la seva base de dades. Tanmateix, en algunes variables categòriques com ara `agent` o `company`, el valor "NULL" es presenta com una de les categories. Això no s'ha de considerar com que falta el valor, sinó com a "no aplicable". Per exemple, si un agent de reserva `agent` es defineix com a "NULL", significa que la reserva no prové d'una agència de viatges.
 
-```{r summary, echo=FALSE}
+```{r data_types}
+# converteix el tipus de dades de les columnes segons la seva naturalesa
+x <- x |>
+    mutate(
+        # dates
+        reservation_status_date = as.Date(reservation_status_date),
+        # factors
+        hotel = as.factor(hotel),
+        agent = as.factor(agent),
+        arrival_date_month = factor(arrival_date_month, levels = month.name),
+        assigned_room_type = as.factor(assigned_room_type),
+        company = as.factor(company),
+        country = as.factor(country),
+        customer_type = as.factor(customer_type),
+        deposit_type = factor(
+            deposit_type,
+            levels = c("No Deposit", "Refundable", "Non Refund")
+        ),
+        distribution_channel = as.factor(distribution_channel),
+        is_canceled = as.factor(is_canceled),
+        is_repeated_guest = as.factor(is_repeated_guest),
+        market_segment = as.factor(market_segment),
+        meal = factor(
+            meal,
+            levels = c("Undefined", "SC", "BB", "HB", "FB"), ordered = TRUE
+        ),
+        reservation_status = factor(
+            reservation_status,
+            levels = c("No-Show", "Check-Out", "Canceled"), ordered = TRUE
+        ),
+        reserved_room_type = as.factor(reserved_room_type),
+        # numerics
+        adr = as.numeric(adr),
+        # integers
+        adults = as.integer(adults),
+        babies = as.integer(babies),
+        children = as.integer(children)
+    )
+```
+
+## Neteja de dades
+
+Primer, inspeccionarem les dades amb la funció `summary()` inclosa a R.  
+Podeu trobar una explicació de cada variable a l'article que descriu aquest
+conjunt de dades en detall, tot i que els noms de les variables són força
+explicatives:
+
+```{r summary}
 summary(x)
 ```
 
-# Numerical variables
+Nombre de files repetides:
 
-Some unexpected (outliers?) values for several variables can be observed.
-For instance:
-
-1) A maximum of 55 in 'adults'
-2) A maximum of 10 in 'children' (including also missing values)
-3) A maximum of 10 in 'babies'
-4) Negative values in the average daily rate ('adr') or or very high
-
-Let's visualize the histogram of the variable 'adults', with at least 55 
-breaks in the histogram, using the function hist() in R:
-
-```{r hist_adults}
-hist(x$adults,breaks=55)
+```{r duplicated}
+nrow(x[duplicated(x), ])
 ```
 
-It can be observed that the histogram shows no bars around the value 55, 
-given that this is a very large set and probably it's only one or a few cases. 
-In these cases, to analyze the extreme values of a variable, the values of the 
-variable in question can be represented graphically as follows, ordering and 
-plotting the data (if they are numerical, as in this case):
+No s'eliminen les files repetides, ja que no es disposa de suficient informació
+per saber si es tracta d'un error o si realment són reserves diferents amb les
+mateixes files, p. ex. amb el número d'habitació assignada.
+
+```{r remove_duplicated}
+# x <- x[!duplicated(x), ]
+```
+
+# Variables numèriques
+
+S'observen alguns valors inesperats (outliers?) en diverses variables. Per exemple:
+
+1) Un màxim de 55 en `adults`  
+2) Un màxim de 10 en `children` (incloent valors perduts)  
+3) Un màxim de 10 en `babies`  
+4) Valors negatius en la tarifa diària mitjana (`adr`) o molt elevats  
+
+Visualitzem l'histograma de la variable `adults`, amb almenys 55 intervals:
+
+```{r hist_adults, echo=FALSE}
+hist(x$adults,
+    breaks = 55,
+    main = "Histograma d'adults", xlab = "Nombre d'adults",
+    ylab = "Freqüència"
+)
+# Desa l'histograma com a fitxer SVG
+# svg(filename = "img/hist_adults.svg", width = 8, height = 6)
+# hist(x$adults,
+#     breaks = 55,
+#     main = "Histograma d'adults", xlab = "Nombre d'adults"
+# )
+# dev.off()
+```
+
+Es pot observar que l'histograma no mostra barres al voltant del valor 55, ja
+que es tracta d'un conjunt molt gran i probablement només és un o pocs casos. En
+aquests casos, per analitzar els valors extrems d'una variable, els valors de la
+variable en qüestió es poden representar gràficament de la següent manera,
+ordenant i representant les dades (si són numèriques, com en aquest cas):
 
 ```{r plot_adults}
-plot(sort(x$adults))
+plot(sort(x$adults),
+    main = "Gràfic d'adults ordenats",
+    ylab = "Nombre d'adults"
+)
 grid()
+# Desa el gràfic com a fitxer SVG
+# svg(filename = "img/plot_adults.svg", width = 8, height = 6)
+# plot(sort(x$adults))
+# grid()
+# dev.off()
 ```
-The 'Index' represents the position of the element once it's sorted, but we're 
-more interested in the Y axis, as we can see that some elements have values 
-of 10 or higher. Since this is an integer variable with a limited set of 
-possible values, we can use table() to visualize them:
+
+L'índex representa la posició de l'element un cop ordenat, però ens interessa
+més l'eix Y, ja que podem veure que alguns elements tenen valors de 10 o més.
+Com que aquesta és una variable entera amb un conjunt limitat de valors
+possibles, podem utilitzar table() per visualitzar-los:
 
 ```{r table_adults}
 table(x$adults)
 ```
-As you can see, there's one reservation for 10 adults, two for 20 adults, 
-and so on, up to one for 55 adults! Without going into further detail, we'll 
-remove all rows with reservations for 10 or more adults:
+
+Com es pot veure, hi ha una reserva per a 10 adults, dues per a 20 adults,
+i així successivament, fins a una per a 55 adults! Sense entrar en més detalls,
+eliminarem totes les files amb reserves per a 10 o més adults:
 
 ```{r clean_adults}
-x=x[x$adults<10,]
+x <- x[x$adults < 10, ]
 ```
 
-EXERCISE: Repeat this process with variables 'children' and 'babies'. Try also
-to change the threshold to less than 5 instead of 10. 
+**Exercici**
 
-The histogram of the 'adr' variable (average daily rate) presents the same 
-problem as the 'adults' variable, so we will simply create a graph with the 
-ordered values again:
+Repetiu aquest procés amb les variables `children` i `babies`. Proveu també de
+canviar el llindar a menys de 5 en lloc de 10.
 
-```{r plot_adr}
-plot(sort(x$adr))
+```{r hist_children, echo=FALSE}
+hist(x$children,
+    breaks = 55,
+    main = "Histograma de nens", xlab = "Nombre de nens",
+    ylab = "Freqüència"
+)
+# Desa l'histograma com a fitxer SVG
+# svg(filename = "img/hist_children.svg", width = 8, height = 6)
+# hist(x$children,
+#     breaks = 55,
+#     main = "Histograma de nens", xlab = "Nombre de nens"
+# )
+# dev.off()
+```
+
+```{r plot_children, echo=FALSE}
+plot(sort(x$children),
+    main = "Gràfic de nens ordenats",
+    ylab = "Nombre de nens"
+)
 grid()
+# Desa el gràfic com a fitxer SVG
+# svg(filename = "img/plot_children.svg", width = 8, height = 6)
+# plot(sort(x$children))
+# grid()
+# dev.off()
 ```
-In this case, we observe that only one value is significantly higher than the 
-rest. We consider it an outlier and eliminate it, as well as the negative 
-values which have no a clear explanation, although we keep the 0 values:
+
+```{r clean_children}
+x <- x[x$children < 5, ]
+```
+
+```{r hist_babies, echo=FALSE}
+hist(x$babies,
+    breaks = 55,
+    main = "Histograma de nadons", xlab = "Nombre de nadons",
+    ylab = "Freqüència"
+)
+# Desa l'histograma com a fitxer SVG
+# svg(filename = "img/hist_babies.svg", width = 8, height = 6)
+# hist(x$babies,
+#     breaks = 55,
+#     main = "Histograma de nadons", xlab = "Nombre de nadons",
+#     ylab = "Freqüència"
+# )
+# dev.off()
+```
+
+```{r plot_babies, echo=FALSE}
+plot(sort(x$babies),
+    main = "Gràfic de nadons ordenats",
+    ylab = "Nombre de nadons"
+)
+grid()
+# Desa el gràfic com a fitxer SVG
+# svg(filename = "img/plot_babies.svg", width = 8, height = 6)
+# plot(sort(x$babies))
+# grid()
+# dev.off()
+```
+
+```{r clean_babies}
+x <- x[x$babies < 5, ]
+```
+
+**Fi de l'exercici**
+
+L'histograma de la variable `adr` (tarifa diària mitjana) presenta el mateix 
+problema que la variable `adults`, així que simplement crearem un gràfic amb els 
+valors ordenats de nou:
+
+```{r plot_adr, echo=FALSE}
+plot(sort(x$adr),
+    main = "Gràfic de la tarifa diària mitjana (ADR) amb valors ordenats",
+    ylab = "Tarifa diària mitjana (ADR)"
+)
+grid()
+# Desa el gràfic com a fitxer SVG
+# svg(filename = "img/plot_adr.svg", width = 8, height = 6)
+# plot(sort(x$adr))
+# grid()
+# dev.off()
+```
+
+En aquest cas, observem que només un valor és significativament més alt que la 
+resta. El considerem un valor atípic i l'eliminem, així com els valors negatius 
+que no tenen una explicació clara, tot i que mantenim els valors 0:
 
 ```{r clean_adr}
-x=x[x$adr>=0 & x$adr<1000,]
+# Elimina els valors extrems que estiguin fora de l'interval [0, 1000)
+x <- x[x$adr >= 0 & x$adr < 1000, ]
+# Elimina els valors NA
+x <- x[!is.na(x$adr), ]
+# Mostra un resum de la variable adr
+summary(x$adr)
 ```
 
-The histogram now provides us with some relevant information. We draw it using
-the ggplot2 package, which offers many more options than hist():
+L'histograma ara ens proporciona informació rellevant. El dibuixem utilitzant
+el paquet ggplot2, que ofereix moltes més opcions que `hist()`:
 
-```{r hist_adr}
-ggplot(data=x, aes(x=adr)) + 
-  geom_histogram(bins=55, colour="black", fill = "lightgray") +
-  theme_light()
-```
-EXERCISE: improve the graph to make axis, title, etc. more adequate.
-
-We can see that there is a set of approximately 2,000 zero values, which could
-be analyzed separately, for example. There are R packages that help us estimate
-this distribution and the parameters that determine it visually, such as the 
-fitdistrplus package, which provides the descdist() function (caution, slow!):
-
-```{r descdist}
-require(fitdistrplus)
-descdist(x$adr,boot=1000)
-```
-As you can see, the real data (observations, a colored dot) and the simulated
-data (in other color) approximate what a lognormal distribution might look like. 
-However, to experiment with the cleanest possible data set, we will:
-
-1) remove 0-day stays
-2) remove 0-cost stays
-3) remove stays with no guests
-4) replace the NAs in the children variable with 0
-
-```{r data_cleansing}
-x[is.na(x$children),'children']=0
-x=x[x$adr>0 & 
-    (x$stays_in_week_nights+x$stays_in_weekend_nights)>0 & 
-    (x$adults+x$children+x$babies)>0 & 
-    !is.na(x$children),]
+```{r hist_adr, echo=FALSE}
+ggplot(data = x, aes(x = adr)) +
+    geom_histogram(bins = 55, colour = "black", fill = "lightgray") +
+    theme_minimal()
+# Desa l'histograma com a fitxer SVG
+# ggsave("img/hist_adr.svg", plot = last_plot(), width = 8, height = 6)
 ```
 
-## Categorical variables
+**Exercici**:
 
-For categorical variables, the summary() function gives us a first idea of the
-possible values each can take. For example, in the original set (before removing
-outliers), there are 79,330 reservations at a city hotel (Lisbon) and 40,060 at
-a resort (Algarve). We can ask ourselves whether the cost distribution is the
-same for both groups, either by using the appropriate statistical test or simply
-by comparing histograms, in this case using the ggplot2 package, which is much
-more powerful for creating all kinds of graphs:
+Milloreu el gràfic per fer que els eixos, el títol, etc. siguin més adequats.
 
-```{r hist_adr_tipo}
+```{r hist_adr_exercici, echo=FALSE}
+ggplot(data = x, aes(x = adr)) +
+    geom_histogram(bins = 55, colour = "black", fill = "lightgray") +
+    labs(
+        title = "Histograma de la tarifa diària mitjana (ADR)",
+        x = "Tarifa diària mitjana (ADR)",
+        y = "Freqüència"
+    ) +
+    theme_minimal()
+# Desa l'histograma com a fitxer SVG
+# ggsave("img/hist_adr_exercici.svg", plot = last_plot(), width = 8, height = 6)
+```
+
+**Fi de l'exercici**
+
+Podem veure que hi ha un conjunt d'aproximadament 2.000 valors zero, que es
+podrien analitzar per separat, per exemple. Hi ha paquets R que ens ajuden a
+estimar aquesta distribució i els paràmetres que la determinen visualment, com
+el paquet fitdistrplus, que proporciona la funció `descdist()` (atenció, lent!):
+
+```{r descdist, echo=FALSE}
+descdist(x$adr, boot = 1000)
+# Desa el gràfic com a fitxer SVG
+# svg(filename = "img/descdist_adr.svg", width = 8, height = 6)
+# descdist(x$adr, boot = 1000)
+# dev.off()
+```
+
+Com es pot veure, les dades reals (observacions, un punt de color) i les dades
+simulades (en un altre color) s'aproximen al que podria semblar una distribució
+lognormal. No obstant això, per experimentar amb el conjunt de dades més net
+possible, farem:
+
+1) eliminar les estades de 0 dies
+2) eliminar les estades de cost 0
+3) eliminar les estades sense hostes
+4) substituir els NA en la variable children per 0
+
+```{r data_clean_children}
+x[is.na(x$children), "children"] <- 0
+x <- x[x$adr > 0 &
+    (x$stays_in_week_nights + x$stays_in_weekend_nights) > 0 &
+    (x$adults + x$children + x$babies) > 0 &
+    !is.na(x$children), ]
+```
+
+## Variables categòriques
+
+Per a les variables categòriques, la funció `summary()` ens dóna una primera
+idea dels valors possibles que pot prendre cada una. Per exemple, en el conjunt
+original (abans d'eliminar valors extrems), hi ha 79.330 reserves en un hotel de
+ciutat (Lisboa) i 40.060 en un resort (Algarve). Podem preguntar-nos si la
+distribució dels costos és la mateixa per a ambdós grups, ja sigui utilitzant
+la prova estadística adequada o simplement comparant histogrames, en aquest cas
+utilitzant el paquet ggplot2, que és molt més potent per crear tot tipus de
+gràfics:
+
+```{r hist_adr_tipo, echo=FALSE}
 # require(ggplot2)
-ggplot(data=x, aes(x=adr, fill=hotel)) + 
-  geom_histogram(bins=50, colour="black") +
-  theme_light()
+ggplot(data = x, aes(x = adr, fill = hotel)) +
+    geom_histogram(bins = 50, colour = "black") +
+    theme_minimal()
+# Desa l'histograma com a fitxer SVG
+# ggsave("img/hist_adr_tipo.svg", plot = last_plot(), width = 8, height = 6)
 ```
-It can be seen that the most common prices in Lisbon (city hotels) are slightly
-to the right of the most common prices in the Algarve (resort hotels), although
-the highest prices in Lisbon decrease more rapidly than in the Algarve. By using
-a violin plot, we can see more detail, especially if we also show the typical
-quartiles of a box plot:
 
-```{r violin_adr_tipo}
-ggplot(data=x, aes(x=hotel, y=adr, fill=hotel)) + 
-  geom_violin() + geom_boxplot(width=.1, outliers = F) +
-  coord_flip() + 
-  theme_light()
+Es pot veure que els preus més comuns a Lisboa (hotels de ciutat) estan
+lleugerament a la dreta dels preus més comuns a l'Algarve (hotels de resort),
+tot i que els preus més alts a Lisboa disminueixen més ràpidament que a
+l'Algarve. Utilitzant un gràfic de violí, podem veure més detalls, especialment
+si també mostrem els típics quartils d'un diagrama de caixa:
+
+```{r violin_adr_tipo, echo=FALSE}
+ggplot(data = x, aes(x = hotel, y = adr, fill = hotel)) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    coord_flip() +
+    theme_minimal() +
+    theme(
+        legend.position = "none"
+    )
+# Desa el gràfic com a fitxer SVG
+# ggsave("img/violin_adr_tipo.svg", plot = last_plot(), width = 8, height = 6)
 ```
-There is an R package called ggstatsplot that has specific functions for each
-type of graph, including appropriate statistical tests to determine if there
-are differences between groups:
 
-```{r ggstatsplot}
+Hi ha un paquet R anomenat ggstatsplot que té funcions específiques per a cada
+tipus de gràfic, incloent proves estadístiques adequades per determinar si hi
+ha diferències entre grups:
+
+```{r ggstatsplot, echo=FALSE}
 # require(ggstatsplot)
-ggbetweenstats(data=x, x=hotel, y=adr)
+ggbetweenstats(data = x, x = hotel, y = adr)
+# Desa el gràfic com a fitxer SVG
+# ggsave(
+#     "img/ggbetweenstats_adr_tipo.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
 ```
-Another interesting variable is the hotel guests' origin ('country'). The
-problem is that this variable has many different values (178), so we should
-focus on the countries with the most tourists, also showing whether they choose
-a city hotel or a resort:
 
-```{r country}
+Una altra variable interessant és l'origen dels hostes de l'hotel (`country`).
+El problema és que aquesta variable té molts valors diferents (178), així que
+hauríem de centrar-nos en els països amb més turistes, mostrant també si
+trien un hotel de ciutat o un resort:
+
+```{r country, echo=FALSE}
 # require(tidyverse)
-# countries with at least 100 bookings
-xx = x %>% group_by(country) %>% mutate(pais=n()) %>% filter(pais>=100)
-xx$country=factor(xx$country)
-ggplot(data=xx, aes(x=reorder(country, -pais))) + 
-  geom_bar(stat="count", aes(fill=hotel)) +
-  theme_light() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+# Almenys 1000 reserves
+xx <- x |>
+    group_by(country) |>
+    mutate(pais = n()) |>
+    filter(pais >= 1000)
+ggplot(data = xx, aes(x = reorder(country, -pais))) +
+    geom_bar(stat = "count", aes(fill = hotel)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+# Desa el gràfic com a fitxer SVG
+# ggsave("img/bar_country.svg", plot = last_plot(), width = 8, height = 6)
 ```
-Obviously, Portugal (PRT) ranks first, followed by neighboring countries such
-as Great Britain, France, and Spain. Visitors from Great Britain and Ireland
-are most likely to choose a resort, while those from France, Germany, and Italy
-primarily visit Lisbon.
 
-EXERCISE: Are there differences between residents of Portugal and the rest?
+Obviament, Portugal (PRT) ocupa el primer lloc, seguida dels països veïns com
+Gran Bretanya, França i Espanya. Els visitants de Gran Bretanya i Irlanda
+són més propensos a triar un resort, mentre que els de França, Alemanya i Itàlia
+visiten principalment Lisboa.
 
-Another interesting variable is 'is_canceled', which indicates whether a 
-reservation was canceled or not (37.0% of the time). We can observe the 
-relationship between two categorical variables using a mosaic chart:
+**Exercici**:
 
-```{r mosaic_hotel_is_canceled}
+Hi ha diferències entre els residents de Portugal i la resta?
+
+```{r country_exercici, echo=FALSE}
+# Almenys 1000 reserves
+xx <- x |>
+    mutate(is_portugal = ifelse(country == "PRT", "Portugal", "Altres")) |>
+    group_by(is_portugal) |>
+    mutate(pais = n()) |>
+    filter(pais >= 1000)
+ggplot(data = xx, aes(x = is_portugal)) +
+    scale_fill_discrete(name = "Hotel") +
+    labs(
+        title = "Nombre de reserves per país d'origen",
+        x = "País d'origen", y = "Nombre de reserves"
+    ) +
+    geom_bar(stat = "count", aes(fill = hotel)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(vjust = 0.5))
+# Desa el gràfic com a fitxer SVG
+# ggsave("img/bar_country_exercici.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
+```
+
+**Fi de l'exercici**
+
+Una altra variable interessant és `is_canceled`, que indica si una 
+reserva va ser cancel·lada o no (el 37,0% de les vegades). Podem observar la 
+relació entre dues variables categòriques utilitzant un gràfic mosaic:
+
+```{r mosaic_hotel_is_canceled, echo=FALSE}
+# FIXME
 # require(ggmosaic)
-x$is_canceled=as.factor(x$is_canceled)
-ggplot(data=x) + 
-  geom_mosaic(aes(x=product(is_canceled, hotel), fill=hotel)) +
-  theme_light() 
+# ggplot(data = x) +
+#     geom_mosaic(aes(x = product(is_canceled, hotel), fill = hotel)) +
+#     theme_minimal()
+# # Desa el mosaic com a fitxer SVG
+# ggsave(
+#     "img/mosaic_hotel_is_canceled.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
 ```
-It can be seen that the cancellation rate (denoted by 1 on the Y-axis) at a 
-resort is lower than that of a hotel in Lisbon. On the X-axis, the relative
-size of each column also corresponds to the proportion of each hotel type. 
-It is important not to consider the Y-axis labels (0/1) as the actual numerical
-cancellation rate, as this can be misleading.
 
-EXERCISE: which other type of graph could be used to represent this data?
+Es pot veure que la taxa de cancel·lació (denotada per 1 a l'eix Y) en un 
+resort és inferior a la d'un hotel a Lisboa. A l'eix X, la mida relativa de 
+cada columna també correspon a la proporció de cada tipus d'hotel. És 
+important no considerar les etiquetes de l'eix Y (0/1) com la taxa numèrica 
+real de cancel·lació, ja que això pot ser enganyós.
 
-In the case of cancellation by country for the countries with more tourists:
+**Exercici**:
 
-```{r mosaic_country_is_canceled}
-# at least 1000 bookings
-xx = x %>% group_by(country) %>% mutate(pais=n()) %>% filter(pais>=1000)
-xx$country=factor(xx$country)
-ggplot(data=xx) + 
-  geom_mosaic(aes(x=product(is_canceled, country), fill=country)) +
-  theme_light() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+Quin altre tipus de gràfic es podria utilitzar per representar aquestes dades?
+
+Canviar el gràfic mosaic per un gràfic de barres apilades o un gràfic de sectors.
+
+```{r bar_hotel_is_canceled, echo=FALSE}
+ggplot(data = x, aes(x = hotel, fill = is_canceled)) +
+    geom_bar(position = "fill") +
+    # Els valors de l'eix Y es mostren com a percentatges
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Cancellation Status",
+        labels = c("Not Canceled", "Canceled"),
+        values = c("0" = "#00BFC4", "1" = "#F8766D")
+    ) +
+    labs(
+        title = "Proportion of Cancellations by Hotel Type",
+        x = "Hotel Type",
+        y = "Proportion of Cancellations",
+        fill = "Cancellation Status",
+    ) +
+    theme_minimal() +
+    # Centra el títol
+    theme(plot.title = element_text(hjust = 0.5))
+# Desa el gràfic com a fitxer SVG
+# ggsave(
+#     "img/bar_hotel_is_canceled.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
 ```
-It can be seen that the cancellation rate is much higher for local tourists 
-(from Portugal, PRT), while it is much lower for the rest of the countries.
-However, this graph is not easy to read; in this case, there is no order of 
-either the countries or the percentage of cancellations.
 
-EXERCISE: Improve the previous graph to make it more understandable and 
-consider whether it is possible to visualize the relationships between three
-or more categorical variables.
+```{r sector_hotel_is_canceled, echo=FALSE}
+# diagrama de sectors del percentatge de cancel·lacions per tipus d'hotel
+cancellation_summary <- x |>
+    group_by(hotel, is_canceled) |>
+    summarise(count = n()) |>
+    mutate(percentage = count / sum(count) * 100)
+ggplot(cancellation_summary, aes(x = "", y = percentage, fill = is_canceled)) +
+    geom_bar(width = 1, stat = "identity") +
+    coord_polar("y", start = 0) +
+    scale_fill_manual(
+        name = "Cancellation Status",
+        labels = c("0" = "Not Canceled", "1" = "Canceled"),
+        values = c("0" = "#00BFC4", "1" = "#F8766D")
+    ) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Cancellation Percentage by Hotel Type",
+        x = NULL,
+        y = NULL,
+        fill = "Cancellation Status"
+    ) +
+    # Mostra el percentatge a cada sector
+    geom_text(aes(label = paste0(round(percentage, 1), "%")),
+        position = position_stack(vjust = 0.5)
+    ) +
+    theme_void() +
+    theme(
+        # Centra el títol
+        plot.title = element_text(hjust = 0.5)
+    )
+# Desa el gràfic com a fitxer SVG
+# ggsave(
+#     "img/sector_hotel_is_canceled.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
+```
 
-Finally, let's analyze the behavior of reservations relative to the arrival
-date. First, using the R lubridate package (a marvel for manipulating date and
-time data), we'll create a 'day' variable to determine the day of the week the
-hotel was checked in and analyze how many reservations there were each day:
+**Fi de l'exercici**
 
-```{r dia}
+En el cas de la cancel·lació per país per als països amb més turistes:
+
+```{r mosaic_country_is_canceled, echo=FALSE}
+# FIXME
+# Almenys 1000 reserves
+# xx <- x |>
+#     group_by(country) |>
+#     mutate(pais = n()) |>
+#     filter(pais >= 1000)
+# ggplot(data = xx) +
+#     geom_mosaic(aes(x = product(is_canceled, country), fill = country)) +
+#     theme_minimal() +
+#     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+# # Desa el mosaic com a fitxer SVG
+# ggsave(
+#     "img/mosaic_country_is_canceled.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
+```
+
+Es pot veure que la taxa de cancel·lació és molt més alta per als turistes
+locals  (de Portugal, PRT), mentre que és molt més baixa per a la resta de
+països. No obstant això, aquest gràfic no és fàcil de llegir; en aquest cas, no
+hi ha ordre ni  dels països ni del percentatge de cancel·lacions.
+
+**Exercici**
+
+Millora el gràfic anterior per fer-lo més comprensible i considera si és
+possible visualitzar les relacions entre tres o més variables categòriques.
+
+```{r exercici_mosaic_country_is_canceled}
+# Almenys 1000 reserves
+xx <- x |>
+    group_by(country) |>
+    mutate(pais = n()) |>
+    filter(pais >= 1000)
+ggplot(data = xx, aes(
+    x = reorder(country, -as.numeric(is_canceled)),
+    fill = is_canceled
+)) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Cancellation Status",
+        labels = c("Not Canceled", "Canceled"),
+        values = c("0" = "#00BFC4", "1" = "#F8766D")
+    ) +
+    labs(
+        title = "Proportion of Cancellations by Country",
+        x = "Country",
+        y = "Proportion of Cancellations",
+        fill = "Cancellation Status",
+    ) +
+    # mostra els percentatges en cada barra amb 2 decimals
+    geom_text(
+        aes(label = scales::percent(after_stat(count) / sum(after_stat(count)),
+            accuracy = 0.01, decimal.mark = ","
+        )),
+        stat = "count",
+        # Centra els percentatges verticalment
+        position = position_fill(vjust = 0.5),
+        # Gira 90 graus els percentatges per adaptar-los a les barres estretes
+        angle = 90,
+        # Mida de lletra petita
+        size = 3,
+        # Color del text blanc
+        color = "white"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        plot.title = element_text(hjust = 0.5)
+    )
+# Desa el gràfic com a fitxer SVG
+# ggsave(
+#     "img/exercici_bar_country_is_canceled.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
+```
+
+```{r exercici_mosaic_country_is_canceled_3vars, echo=FALSE}
+# Almenys 1000 reserves
+xx <- x |>
+    group_by(country) |>
+    mutate(pais = n()) |>
+    filter(pais >= 1000)
+ggplot(data = xx, aes(
+    x = reorder(country, -as.numeric(is_canceled)),
+    fill = interaction(is_canceled, hotel, lex.order = TRUE)
+)) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_discrete(
+        name = "Cancellation Status and Hotel Type",
+        labels = c(
+            "Not Canceled - City Hotel", "Not Canceled - Resort Hotel",
+            "Canceled - City Hotel", "Canceled - Resort Hotel"
+        )
+    ) +
+    labs(
+        title = "Proportion of Cancellations by Country and Hotel Type",
+        x = "Country",
+        y = "Proportion of Cancellations",
+        fill = "Cancellation Status and Hotel Type",
+    ) +
+    # mostra els percentatges en cada barra amb 2 decimals
+    geom_text(
+        aes(label = scales::percent(..count.. / sum(..count..),
+            accuracy = 0.01, decimal.mark = ","
+        )),
+        stat = "count",
+        # Centra els percentatges verticalment
+        position = position_fill(vjust = 0.5),
+        # Gira 90 graus els percentatges per adaptar-los a les barres estretes
+        angle = 90,
+        # Mida de lletra petita
+        size = 3,
+        # Color del text blanc
+        color = "white"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+    # Centra el títol
+    theme(plot.title = element_text(hjust = 0.5))
+# Desa el gràfic com a fitxer SVG
+# ggsave(
+#     "img/exercici_bar_country_is_canceled_3vars.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
+```
+
+**Fi de l'exercici**
+
+Finalment, analitzem el comportament de les reserves en relació amb la data
+d'arribada. Primer, utilitzant el paquet R `lubridate` (una meravella per
+manipular dades de data i hora), crearem una variable `dia` per determinar el
+dia de la setmana en què es va fer el check-in a l'hotel i analitzarem quantes
+reserves hi va haver cada dia:
+
+```{r dia_data}
+x$dia <- as_date(paste0(
+    x$arrival_date_year, "-",
+    x$arrival_date_month, "-", x$arrival_date_day_of_month
+))
+```
+
+```{r dia_plot, echo=FALSE}
 # require(lubridate)
-x$dia=as_date(paste0(x$arrival_date_year,'-',x$arrival_date_month,'-',x$arrival_date_day_of_month))
-ggplot(data=x,aes(x=dia,group=arrival_date_year,color=as.factor(arrival_date_year))) + 
-  geom_bar() + scale_color_manual(values=c("2015"="red","2016"="green","2017"="blue")) + 
-  theme_light() + 
-  theme(legend.position='none') 
+ggplot(data = x, aes(
+    x = dia,
+    group = arrival_date_year, color = as.factor(arrival_date_year)
+)) +
+    geom_bar() +
+    scale_color_manual(values = c(
+        "2015" = "red", "2016" = "green",
+        "2017" = "blue"
+    )) +
+    theme_minimal() +
+    theme(legend.position = "none")
+# Desa el gràfic com a fitxer SVG
+# ggsave("img/bar_dia.svg", plot = last_plot(), width = 8, height = 6)
 ```
-EXERCISE: Improve and split the above graph by hotel type or country of origin.
 
-As described in the article, the data covers the period from July 1, 2015, to
-August 31, 2017. Some peaks can be observed that might be interesting to explain
-(what happened those days, i.e. 2015-12-05?). You can check Google Trends to
-get some insights:
+**Exercici:**
+
+Millora i divideix el gràfic anterior per tipus d'hotel o país d'origen.
+
+```{r dia_exercici, echo=FALSE}
+# require(lubridate)
+ggplot(data = x, aes(
+    x = dia,
+    group = arrival_date_year, color = as.factor(arrival_date_year)
+)) +
+    geom_bar() +
+    scale_color_manual(values = c(
+        "2015" = "red", "2016" = "green",
+        "2017" = "blue"
+    )) +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Nombre de reserves per dia i any d'arribada",
+        x = "Data",
+        y = "Nombre de reserves",
+        color = "Any de l'arribada"
+    ) +
+    theme_minimal() +
+    theme(
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5)
+    )
+# Desa el gràfic com a fitxer SVG
+# ggsave("img/bar_dia_exercici.svg", plot = last_plot(), width = 8, height = 6)
+```
+
+```{r dia_exercici_pais, echo=FALSE}
+# Almenys 1000 reserves
+xx <- x |>
+    group_by(country) |>
+    mutate(pais = n()) |>
+    filter(pais >= 1000)
+ggplot(data = xx, aes(
+    x = dia,
+    group = arrival_date_year, color = as.factor(arrival_date_year)
+)) +
+    geom_bar() +
+    scale_color_manual(values = c(
+        "2015" = "red", "2016" = "green",
+        "2017" = "blue"
+    )) +
+    facet_wrap(~country) +
+    labs(
+        title = "Nombre de reserves per dia i país d'origen",
+        x = "Data",
+        y = "Nombre de reserves",
+        color = "Any de l'arribada"
+    ) +
+    theme_minimal() +
+    theme(
+        # Posiciona la llegenda a la part inferior
+        legend.position = "bottom",
+        # Elimina les etiquetes i les marques de l'eix X
+        axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        # Elimina la quadrícula vertical
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        # Centra el títol
+        plot.title = element_text(hjust = 0.5)
+    )
+# Desa el gràfic com a fitxer SVG
+# ggsave("img/bar_dia_exercici_pais.svg",
+#     plot = last_plot(), width = 8, height = 6
+# )
+```
+
+**Fi de l'exercici**
+
+Com s'ha descrit a l'article, les dades cobreixen el període de l'1 de juliol
+de 2015 al 31 d'agost de 2017. Es poden observar alguns pics que podrien ser
+interessants d'explicar (què va passar aquells dies, per exemple 2015-12-05?).
+Pots consultar Google Trends per obtenir algunes idees:
 
 https://trends.google.es/trends/explore?date=2015-01-01%202017-12-31&q=lisboa,algarve&hl=es
 
@@ -276,50 +923,1219 @@ https://trends.google.es/trends/explore?date=2015-01-01%202017-12-31&q=lisboa,al
 max(table(x$dia))
 which.max(table(x$dia))
 ```
-With the computed day 'dia', along with the variables 'stays_in_week' and 
-'weekend_nights', we can try to manually categorize the trip type according
-to the following criteria (this is arbitrary, clearly improvable):
 
-1) if 'stays_in_weekend_nights' is zero => work trip
-2) if 'stays_in_week_nights' is zero or one and in this case the entry is on
-   Friday => weekend
-3) if 'stays_in_week_nights' is five and 'stays_in_weekend_nights' is three 
-  (that is, from Saturday or Sunday to Saturday or Sunday) 
-   => week holiday package
-4) if 'stays_in_weekend_nights' is one or two and 'stays_in_week_days' is five
-   or less => work + rest
-5) the rest of combinations => holidays
+Amb el `dia` calculat, juntament amb les variables `stays_in_week` i 
+`weekend_nights`, podem intentar categoritzar manualment el tipus de viatge
+segons els següents criteris (això és arbitrari, clarament millorables):
+
+1) si `stays_in_weekend_nights` és zero => viatge de feina
+2) si `stays_in_week_nights` és zero o un i en aquest cas l'entrada és en
+   divendres => cap de setmana
+3) si `stays_in_week_nights` és cinc i `stays_in_weekend_nights` és tres 
+  (és a dir, de dissabte o diumenge a dissabte o diumenge) 
+   => paquet de vacances setmanal
+4) si `stays_in_weekend_nights` és un o dos i `stays_in_week_nights` és cinc
+   o menys => feina + descans
+5) la resta de combinacions => vacances
 
 ```{r tipo_visita}
-# require(lubridate)
-x$tipo=ifelse(x$stays_in_weekend_nights==0, "work",
-       ifelse(x$stays_in_week_nights==0, "weekend",
-       ifelse(x$stays_in_week_nights==1 & wday(x$dia)==6, "weekend",
-       ifelse(x$stays_in_week_nights==5 & 
-              (x$stays_in_weekend_nights==3 |
-               x$stays_in_weekend_nights==4), "package",
-       ifelse(x$stays_in_week_nights<=5 & 
-              x$stays_in_weekend_nights<3, "work+rest",
-       "rest")))))
+x$tipo <- ifelse(x$stays_in_weekend_nights == 0, "work",
+    ifelse(x$stays_in_week_nights == 0, "weekend",
+        ifelse(x$stays_in_week_nights == 1 & wday(x$dia) == 6, "weekend",
+            ifelse(x$stays_in_week_nights == 5 &
+                (x$stays_in_weekend_nights == 3 |
+                    x$stays_in_weekend_nights == 4), "package",
+            ifelse(x$stays_in_week_nights <= 5 &
+                x$stays_in_weekend_nights < 3, "work+rest",
+            "rest"
+            )
+            )
+        )
+    )
+)
 ```
 
-One way to refine this classification would be to look at the number of adults,
-children, and infants to decide whether it is a business traveler or a family.
-The possibilities are endless: you can enrich the dataset with geographic data
-(distance between countries), demographic data, economic data (per capita
-income), weather data (in both Portugal and the country of origin), etc. 
+Una manera de refinar aquesta classificació seria mirar el nombre d'adults,
+nens i nadons per decidir si es tracta d'un viatger de negocis o d'una família.
+Les possibilitats són infinites: es pot enriquir el conjunt de dades amb dades
+geogràfiques (distància entre països), dades demogràfiques, dades econòmiques
+(renda per càpita), dades meteorològiques (tant a Portugal com al país
+d'origen), etc.
+    
+**Exercici**
 
-EXERCISE: You must explore such enriched dataset and, in this process of 
-exploration, decide what story you want to tell about it. Some ideas:
+Has d'explorar aquest conjunt de dades enriquit i, en aquest procés
+d'exploració, decidir quina història vols explicar sobre ell. Algunes idees:
 
-1) do tourists from different countries travel in different dates?
-2) differences in cancellations among groups (countries, type of stay, ...)
-3) relationship between type of stay 'tipo' and cost 'adr'
-4) differences among groups with respect to hotel type (city / resort)
+1) els turistes de diferents països viatgen en diferents dates?
+2) diferències en les cancel·lacions entre grups (països, tipus d'estada, ...)
+3) relació entre el tipus d'estada `tipo` i el cost `adr`
+4) diferències entre grups respecte al tipus d'hotel (ciutat / resort)
 
-NOTE: This is a good example of using ChatGPT or other generative AI to ask 
-interesting questions about the proposed dataset. The following paper describes
-the potential uses of generative AI in the different phases of creating a data
-visualization for storytelling:
+NOTA: Aquest és un bon exemple d'ús de ChatGPT o altres IA generatives per fer
+preguntes interessants sobre el conjunt de dades proposat. El següent article
+descriu els usos potencials de la IA generativa en les diferents fases de la
+creació d'una visualització de dades per a la narració:
 
 https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=10891192
+
+```{r}
+# Filtrar països amb més de 1000 reserves
+xx <- x |>
+    group_by(country) |>
+    mutate(n_bookings = n()) |>
+    filter(n_bookings > 1000) |>
+    ungroup()
+```
+
+
+**Patrons de cancel·lació**
+
+```{r}
+# nombre de files amb reservation_status = 'Check-Out' i is_canceled = 1
+nrow(x[x$reservation_status == "Check-Out" & x$is_canceled == 1, ])
+# nombre de files amb reservation_status = 'Canceled' i is_canceled = 0
+nrow(x[x$reservation_status == "Canceled" & x$is_canceled == 0, ])
+# nombre de files amb reservation_status = 'Canceled' i is_canceled = 0
+nrow(x[x$reservation_status == "No-Show" & x$is_canceled == 0, ])
+```
+
+```{r reservation_status_summary}
+# diagrama de sectors de reservation_status
+reservation_status_summary <- xx |>
+    group_by(hotel, reservation_status) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(hotel) |>
+    tidyr::complete(reservation_status = c("Check-Out", "Canceled", "No-Show"), fill = list(n = 0)) |>
+    mutate(prop = n / sum(n))
+ggplot(reservation_status_summary, aes(x = factor(1), y = prop, fill = reservation_status)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat",
+        labels = c("Cancel·lada", "Checkout", "No-Show"),
+        values = c("Canceled" = "#e74c3c", "Check-Out" = "#2ecc71", "No-Show" = "#f1c40f")
+    ) +
+    geom_text(aes(label = percent(prop, accuracy = 0.1)), position = position_stack(vjust = 0.5), size = 5, fontface = "bold", color = "white") +
+    labs(title = "Percentatge d'estat de la reserva per tipus d'hotel", x = NULL, y = NULL) +
+    geom_col(width = 1) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+rm(reservation_status_summary)
+```
+
+```{r cancellation_summary}
+# diagrama de sectors de is_canceled
+cancellation_summary <- xx |>
+    group_by(hotel, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(hotel) |>
+    tidyr::complete(is_canceled = c("0", "1"), fill = list(n = 0)) |>
+    mutate(pct = n / sum(n))
+ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat de la cancel·lació",
+        labels = c("No cancel·lada", "Cancel·lada"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    geom_text(aes(label = percent(pct, accuracy = 0.1)), position = position_stack(vjust = 0.5), size = 5, fontface = "bold", color = "white") +
+    labs(title = "Percentatge de cancel·lacions per tipus d'hotel", x = NULL, y = NULL) +
+    geom_col(width = 1) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+rm(cancellation_summary)
+```
+
+```{r cancellation_is_portugal}
+# Percentatge de cancel·lacions entre països amb més de 1000 reserves i Portugal
+xx_is_portugal <- xx |>
+    mutate(is_portugal = ifelse(country == "PRT", "Portugal", "Altres")) |>
+    group_by(is_portugal, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(is_portugal) |>
+    mutate(pct = n / sum(n))
+ggplot(xx_is_portugal, aes(x = factor(1), y = pct, fill = is_canceled)) +
+    geom_col(width = 1) +
+    coord_polar(theta = "y") +
+    facet_wrap(~is_portugal, strip.position = "bottom") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(name = "Estat", labels = c("No Cancel·lada", "Cancel·lada"), values = c("0" = "#2ecc71", "1" = "#e74c3c")) +
+    geom_text(aes(label = percent(pct, accuracy = 0.1)), position = position_stack(vjust = 0.5), size = 5, fontface = "bold", color = "white") +
+    labs(title = "Percentatge de cancel·lacions per país d'origen", x = NULL, y = NULL) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+rm(xx_is_portugal)
+
+xx_is_portugal_by_hotel <- xx |>
+    mutate(is_portugal = ifelse(country == "PRT", "Portugal", "Altres")) |>
+    group_by(is_portugal, hotel, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(is_portugal) |>
+    mutate(pct = n / sum(n))
+
+ggplot(
+    data = xx_is_portugal_by_hotel,
+    aes(
+        x = is_portugal,
+        y = n,
+        fill = interaction(is_canceled, hotel, lex.order = TRUE)
+    )
+) +
+    geom_col(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_discrete(
+        name = "Estat de la cancel·lació i tipus d'hotel",
+        labels = c(
+            "No Cancel·lada - Hotel de Ciutat", "No Cancel·lada - Hotel de Resort",
+            "Cancel·lada - Hotel de Ciutat", "Cancel·lada - Hotel de Resort"
+        )
+    ) +
+    geom_text(
+        aes(label = scales::percent(pct, accuracy = 0.1)),
+        position = position_fill(vjust = 0.5),
+        size = 5, fontface = "bold", color = "white"
+    ) +
+    labs(
+        title = "Percentatge de cancel·lacions per país d'origen i tipus d'hotel",
+        x = "País d'origen",
+        y = "Percentatge de cancel·lacions"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 11)
+    )
+
+rm(xx_is_portugal_by_hotel)
+```
+
+```{r}
+# Diagrama de sectors amb el percentatge de cancel·lacios per tipus de dipòsit
+deposit_type_summary <- xx |>
+    group_by(deposit_type, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(deposit_type) |>
+    tidyr::complete(is_canceled = c("0", "1"), fill = list(n = 0)) |>
+    mutate(prop = n / sum(n))
+ggplot(deposit_type_summary, aes(x = factor(1), y = prop, fill = is_canceled)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_wrap(~deposit_type, strip.position = "bottom") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat de la cancel·lació",
+        labels = c("No cancel·lada", "Cancel·lada"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    geom_text(aes(label = percent(prop, accuracy = 0.1)), position = position_stack(vjust = 0.5), size = 5, fontface = "bold", color = "white") +
+    labs(title = "Percentatge de cancel·lacions segons el tipus de dipòsit", x = NULL, y = NULL) +
+    geom_col(width = 1) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+rm(deposit_type_summary)
+```
+
+```{r}
+# Diagrama de sectors amb el percentatge de cancel·lacios per tipus de dipòsit
+deposit_type_summary <- xx |>
+    group_by(hotel, deposit_type, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(hotel, deposit_type) |>
+    tidyr::complete(is_canceled = c("0", "1"), fill = list(n = 0)) |>
+    mutate(prop = n / sum(n))
+ggplot(deposit_type_summary, aes(x = factor(1), y = prop, fill = is_canceled)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_grid(deposit_type ~ hotel, switch = "y") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat de la cancel·lació",
+        labels = c("No cancel·lada", "Cancel·lada"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    geom_text(aes(label = percent(prop, accuracy = 0.1)), position = position_stack(vjust = 0.5), size = 5, fontface = "bold", color = "white") +
+    labs(title = "Percentatge de cancel·lacions segons el tipus de dipòsit i tipus d'hotel", x = NULL, y = NULL) +
+    geom_col(width = 1) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+rm(deposit_type_summary)
+```
+
+```{r}
+# Tenen reemborsament les reserves cancel·lades?
+ggplot(xx, aes(
+    x = reorder(deposit_type, deposit_type, function(x) length(x),
+        decreasing = TRUE
+    ),
+    fill = is_canceled
+)) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat de cancel·lació",
+        labels = c("No cancel·lat", "Cancel·lat"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Percentatge de cancel·lacions segons el tipus de dipòsit",
+        x = "Tipus de dipòsit",
+        y = "Percentatge de cancel·lacions"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# Nombre de reserves i cancel·lacions per tipus d'hotel
+ggplot(xx, aes(x = hotel, fill = is_canceled)) +
+    geom_bar(position = "dodge") +
+    scale_fill_manual(
+        name = "Llegenda",
+        labels = c("Reserves", "Cancel·lacions"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    labs(
+        title = "Nombre de reserves i cancel·lacions per tipus d'hotel",
+        x = "Tipus d'hotel",
+        y = "Nombre",
+    ) +
+    theme_minimal() +
+    theme(
+        legend.title = element_blank(),
+        plot.title = element_text(hjust = 0.5)
+    )
+
+# El percentatge de cancel·lacions és diferent segons el tipus d'hotel?
+ggplot(xx, aes(x = hotel, fill = is_canceled)) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(
+        name = "Estat",
+        labels = c("No Cancel·lada", "Cancel·lada"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    scale_y_continuous(labels = scales::percent) +
+    geom_text(
+        aes(label = scales::percent(..count.. / sum(..count..),
+            accuracy = 0.1
+        )),
+        stat = "count",
+        position = position_fill(vjust = 0.5),
+        size = 5, fontface = "bold", color = "white"
+    ) +
+    labs(
+        title = "Percentatge de cancel·lació per tipus d'hotel",
+        x = "Tipus d'hotel",
+        y = "Proporció"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5, size = 14),
+        legend.position = "bottom",
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 11)
+    )
+
+# percentatge de cancel·lacions per mes d'arribada
+ggplot(xx, aes(
+    x = reorder(arrival_date_month, as.numeric(arrival_date_month)),
+    fill = is_canceled
+)) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(
+        name = "Estat",
+        labels = c("No Cancel·lada", "Cancel·lada"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    scale_y_continuous(labels = scales::percent) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Percentatge de cancel·lacions per mes d'arribada",
+        x = "Mes d'arribada",
+        y = "Percentatge de cancel·lacions"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# diagrama de sectors del tipus de dipòsit enfrontant el dos tipus d'hotel
+deposit_type_summary <- xx |>
+    group_by(hotel, deposit_type) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(hotel) |>
+    tidyr::complete(deposit_type = unique(xx$deposit_type), fill = list(n = 0)) |>
+    mutate(prop = n / sum(n))
+ggplot(deposit_type_summary, aes(x = factor(1), y = prop, fill = deposit_type)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Tipus de dipòsit",
+        values = c("No Deposit" = "#3498db", "Non Refund" = "#9b59b6", "Refundable" = "#f1c40f")
+    ) +
+    labs(title = "Percentatge de tipus de dipòsit per tipus d'hotel", x = NULL, y = NULL) +
+    geom_col(width = 1) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+rm(deposit_type_summary)
+```
+
+Es filtren els clients del 2016 amb status de reserva 'Check-Out'. El valor de
+reservation_status = 'Check-Out' indica que el client es va presentar i va
+completar la seva estada a l'hotel.
+
+```{r repeated_guests}
+# Nombre de clients amb Check-Out que repeteixen segons el mes d'arribada per
+# a l'any 2016
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(
+            arrival_date_month,
+            as.numeric(arrival_date_month)
+        ),
+        fill = arrival_date_month
+    )
+) +
+    geom_bar(position = "dodge") +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Nombre de clients amb Check-Out que repeteixen (2016)",
+        x = "Mes d'arribada",
+        y = "Nombre de clients"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# Nombre de clients amb Check-Out que repeteixen i no repeteixen segons el mes
+# d'arribada per a l'any 2016
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(
+            arrival_date_month,
+            as.numeric(arrival_date_month)
+        ),
+        fill = as.factor(is_repeated_guest)
+    )
+) +
+    geom_bar(position = "dodge") +
+    scale_fill_manual(
+        name = "Client que repeteix",
+        labels = c("No", "Sí"),
+        values = c("0" = "#3498db", "1" = "#9b59b6")
+    ) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Nombre de clients amb Check-Out que repeteixen i no (2016)",
+        x = "Mes d'arribada",
+        y = "Nombre de clients"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# Percentatge de clients amb Check-Out que repeteixen segons el mes d'arribada
+# per a l'any 2016
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(
+            arrival_date_month,
+            as.numeric(arrival_date_month)
+        ),
+        fill = as.factor(is_repeated_guest)
+    )
+) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(
+        name = "Client que repeteix",
+        labels = c("No", "Sí"),
+        values = c("0" = "#3498db", "1" = "#9b59b6")
+    ) +
+    scale_y_continuous(labels = scales::percent) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Percentatge de clients amb Check-Out que repeteixen (2016)",
+        x = "Mes d'arribada",
+        y = "Percentatge de clients"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# Diagrames de violins del nombre de dies d'estada (x$stays_in_week_nights +
+# x$stays_in_weekend_nights) per a cada mes d'arribada per a l'any 2016 per a
+# reserves amb Check-Out
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(
+            arrival_date_month,
+            as.numeric(arrival_date_month)
+        ),
+        y = stays_in_week_nights + stays_in_weekend_nights,
+        fill = arrival_date_month
+    )
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    coord_flip() +
+    labs(
+        title = "Dies d'estada reserves amb Check-Out segons el mes d'arribada (2016)",
+        x = "Mes d'arribada",
+        y = "Dies d'estada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "none"
+    )
+
+# boxplot de les nits d'estada (x$stays_in_week_nights + x$stays_in_weekend_nights)
+# per a cada tipus d'hotel per a reserves amb Check-Out l'any 2016
+ggplot(
+    xx[xx$reservation_status == "Check-Out" & xx$arrival_date_year == 2016, ],
+    aes(x = hotel, y = stays_in_week_nights + stays_in_weekend_nights, fill = hotel)
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    coord_flip() +
+    labs(
+        title = "Dies d'estada reserves amb Check-Out segons el tipus d'hotel (2016)",
+        x = "Tipus d'hotel",
+        y = "Dies d'estada"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+
+# Valors ordenats de stay_days amb reservation_status = 'Check-Out' per a l'any
+# 2016 per a cada tipus d'hotel amb plot
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(
+            as.factor(1:nrow(xx[xx$arrival_date_year == 2016 &
+                xx$reservation_status == "Check-Out", ])),
+            stays_in_week_nights + stays_in_weekend_nights
+        ),
+        y = stays_in_week_nights + stays_in_weekend_nights,
+        color = hotel
+    )
+) +
+    geom_point() +
+    labs(
+        title = "Dies d'estada reserves amb Check-Out ordenats segons el tipus d'hotel (2016)",
+        x = "Reserves ordenades",
+        y = "Dies d'estada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5), legend.position = "bottom",
+        axis.text.x = element_blank()
+    )
+```
+
+Preferències de tipus d'hotel segons diferents variables.
+
+```{r}
+# Percentatge de reserves per tipus d'hotel i país
+ggplot(
+    xx,
+    aes(
+        x = reorder(country, as.numeric(hotel), decreasing = FALSE),
+        fill = hotel
+    )
+) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(
+        name = "Tipus d'hotel",
+        labels = c("City Hotel", "Resort Hotel"),
+        values = c("City Hotel" = "#00BFC4", "Resort Hotel" = "#F8766D")
+    ) +
+    scale_y_continuous(labels = scales::percent) +
+    coord_flip() +
+    labs(
+        title = "Preferència de tipus d'hotel per país",
+        x = "País",
+        y = "Percentatge de reserves"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.x = element_text(vjust = 0.5, hjust = 1),
+        plot.title = element_text(hjust = 0.5)
+    )
+
+# El nombre de dies entre la reserva i l'arribada mig per tipus d'hotel és el
+# mateix?
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(x = hotel, y = lead_time, fill = hotel)
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    coord_flip() +
+    labs(
+        title = "Dies entre la reserva i l'arribada amb Check-Out (2016)",
+        x = "Tipus d'hotel",
+        y = "Dies entre la reserva i l'arribada"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5), legend.position = "none")
+
+# Canvia el nombre de dies mig entre la reserva i l'arribada segons el país
+# d'origen?
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(country, lead_time, FUN = median),
+        y = lead_time, fill = hotel
+    )
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    coord_flip() +
+    labs(
+        title = "Dies entre la reserva i l'arribada amb Check-Out segons el país d'origen (2016)",
+        x = "País d'origen",
+        y = "Dies entre la reserva i l'arribada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none"
+    )
+
+# Canvia el nombre de dies mig entre la reserva i l'arribada segons
+# l'estacionalitat?
+ggplot(
+    xx[xx$arrival_date_year == 2016 & xx$reservation_status == "Check-Out", ],
+    aes(
+        x = arrival_date_month,
+        y = lead_time,
+        group = arrival_date_month,
+        fill = hotel
+    )
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    coord_flip() +
+    labs(
+        title = "Dies entre la reserva i l'arribada amb Check-Out segons el mes d'arribada (2016)",
+        x = "Mes d'arribada",
+        y = "Dies entre la reserva i l'arribada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "none"
+    )
+```
+
+Preferències segons el tipus de client.
+
+```{r}
+# Quins tipus de dipòsit trien els diferents països?
+ggplot(xx, aes(
+    x = reorder(country, deposit_type, FUN = function(x) {
+        table(x)[which.max(table(x))]
+    }),
+    fill = deposit_type
+)) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    labs(
+        title = "Tipus de dipòsit segons el país d'origen",
+        x = "País",
+        y = "Percentatge",
+        fill = "Tipus de dipòsit"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        plot.title = element_text(hjust = 0.5)
+    )
+
+# Quin tipus de client acostuma a fer més reserves?
+ggplot(xx, aes(
+    x = reorder(customer_type, customer_type, function(x) length(x),
+        decreasing = TRUE
+    ),
+    fill = customer_type
+)) +
+    geom_bar() +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Nombre de reserves segons el tipus de client",
+        x = "Tipus de client",
+        y = "Nombre de reserves"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "none"
+    )
+
+# Diagrama de sectors del percentatge de reserves per tipus de client
+customer_type_summary <- xx |>
+    group_by(hotel, customer_type) |>
+    summarise(count = n()) |>
+    mutate(percentage = count / sum(count) * 100)
+ggplot(
+    customer_type_summary, aes(x = "", y = percentage, fill = customer_type)
+) +
+    geom_bar(width = 1, stat = "identity") +
+    coord_polar("y", start = 0) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Percentatge de reserves per tipus de client",
+        fill = "Tipus de client"
+    ) +
+    # Mostra el percentatge a cada sector
+    geom_text(aes(label = paste0(round(percentage, 1), "%")),
+        position = position_stack(vjust = 0.5)
+    ) +
+    theme_void() +
+    theme(
+        # Centra el títol
+        plot.title = element_text(hjust = 0.5)
+    )
+rm(customer_type_summary)
+
+# Quin tipus de de client té una taxa de cancel·lació més alta?
+ggplot(xx, aes(
+    x = reorder(customer_type, customer_type, function(x) length(x),
+        decreasing = TRUE
+    ),
+    fill = is_canceled
+)) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat de cancel·lació",
+        labels = c("No cancel·lat", "Cancel·lat"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Percentatge de cancel·lació segons el tipus de client",
+        x = "Tipus de client",
+        y = "Percentatge de cancel·lació"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# Quina és la despesa mitjana per tipus de client?
+ggplot(
+    xx |> filter(arrival_date_year == 2016),
+    aes(
+        x = reorder(customer_type, customer_type, function(x) length(x),
+            decreasing = TRUE
+        ),
+        y = adr, fill = customer_type
+    )
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    coord_flip() +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Tarifa diària mitjana (ADR) segons el tipus de client (2016)",
+        x = "Tipus de client",
+        y = "Tarifa diària mitjana (ADR)"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank()
+    )
+
+# El consum mig (ADR) varia en funció del mes d'arribada per a l'any 2016?
+ggplot(
+    xx |> filter(arrival_date_year == 2016),
+    aes(
+        x = arrival_date_month,
+        y = adr,
+        group = arrival_date_month,
+        fill = hotel
+    )
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    coord_flip() +
+    labs(
+        title = "Tarifa diària mitjana (ADR) segons el mes d'arribada (2016)",
+        x = "Mes d'arribada",
+        y = "Tarifa diària mitjana (ADR)"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none"
+    )
+
+# quin és el percentatge de reserves cancel·lades per tipus de visita amb
+# dipòsit no reemborsable en funció del tipus d'hotel?
+ggplot(xx, aes(
+    x = tipo,
+    fill = is_canceled
+)) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat de cancel·lació",
+        labels = c("No cancel·lat", "Cancel·lat"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    facet_wrap(~deposit_type) +
+    labs(
+        title = "Percentatge de cancel·lació segons el tipus de visita i tipus de dipòsit",
+        x = "Tipus de visita",
+        y = "Percentatge de cancel·lació"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+```
+
+```{r distribution_channel_stats}
+# diagrama amb el nombre de cancel·lacions segons el canal de distribució
+ggplot(
+    xx,
+    aes(
+        x = reorder(
+            distribution_channel,
+            distribution_channel,
+            function(x) length(x),
+            decreasing = TRUE
+        ),
+        fill = as.factor(is_canceled)
+    )
+) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat",
+        labels = c("No Cancel·lada", "Cancel·lada"),
+        values = c("0" = "#2ecc71", "1" = "#e74c3c")
+    ) +
+    labs(
+        title = "Percentatge de cancel·lacions segons el canal de distribució",
+        x = "Canal de distribució",
+        y = "Percentatge de cancel·lacions"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+# diagrama sectors segons el canal de distribució
+distribution_channel_summary <- xx |>
+    group_by(distribution_channel, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    mutate(prop = n / sum(n))
+ggplot(
+    distribution_channel_summary,
+    aes(
+        x = factor(1), y = prop,
+        fill = interaction(distribution_channel, is_canceled, lex.order = TRUE)
+    )
+) +
+    scale_fill_discrete(
+        name = "Canal de distribució i estat",
+        labels = c(
+            "TA/TO.0" = "TA - No Cancel·lada",
+            "TA/TO.1" = "TA - Cancel·lada",
+            "GDS.0" = "GDS - No Cancel·lada",
+            "GDS.1" = "GDS - Cancel·lada",
+            "Corporate.0" = "Corporate - No Cancel·lada",
+            "Corporate.1" = "Corporate - Cancel·lada",
+            "Direct.0" = "Direct - No Cancel·lada",
+            "Direct.1" = "Direct - Cancel·lada"
+        )
+    ) +
+    coord_polar(theta = "y", start = 0) +
+    geom_col(width = 1) +
+    labs(
+        title = "Percentatge de reserves segons el canal de distribució",
+        x = NULL, y = NULL, fill = "Canal de distribució"
+    ) +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+# percentatge de reserves amb check-out segons el canal de distribució
+ggplot(
+    xx[xx$reservation_status == "Check-Out", ],
+    aes(
+        x = reorder(
+            distribution_channel,
+            distribution_channel,
+            function(x) length(x),
+            decreasing = TRUE
+        ),
+        fill = as.factor(is_repeated_guest)
+    )
+) +
+    geom_bar(position = "fill") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(
+        name = "Client que repeteix",
+        labels = c("No", "Sí"),
+        values = c("0" = "#3498db", "1" = "#9b59b6")
+    ) +
+    labs(
+        title = "Percentatge de fidelització efectiva segons el canal de distribució",
+        x = "Canal de distribució",
+        y = "Percentatge de clients que repeteixen"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
+
+rm(distribution_channel_summary)
+
+# nombre de dies segon el canal de distribució
+ggplot(
+    xx,
+    aes(
+        x = reorder(
+            distribution_channel,
+            distribution_channel,
+            function(x) length(x),
+            decreasing = TRUE
+        ),
+        y = stays_in_week_nights + stays_in_weekend_nights,
+        fill = distribution_channel
+    )
+) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    coord_flip() +
+    labs(
+        title = "Nombre de dies d'estada segons el canal de distribució",
+        x = "Canal de distribució",
+        y = "Nombre de dies d'estada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none"
+    )
+```
+
+```{r}
+# Calcula el nombre de dies d'estada per a cada reserva
+x$stay_days <- x$stays_in_week_nights + x$stays_in_weekend_nights
+
+# Diagrama de violí amb el nombre de dies d'estada segons el tipus d'hotel
+ggplot(data = x, aes(x = hotel, y = stay_days, fill = hotel)) +
+    geom_violin() +
+    geom_boxplot(width = .1, outliers = FALSE) +
+    coord_flip() +
+    labs(
+        title = "Nombre de dies d'estada segons el tipus d'hotel",
+        x = "Tipus d'hotel",
+        y = "Nombre de dies d'estada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none"
+    )
+
+# Histograma del nombre de dies d'estada per tipus d'hotel
+ggplot(data = x, aes(x = stay_days, fill = hotel)) +
+    geom_histogram(position = "dodge", binwidth = 1, color = "black") +
+    labs(
+        title = "Nombre de dies d'estada segons el tipus d'hotel",
+        x = "Nombre de dies de l'estada",
+        y = "Freqüència"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+plot(sort(x$stay_days))
+```
+
+```{r occupation_status}
+# Habitacions ocupades dels hotels per dia
+occupation_data <- x |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    group_by(hotel, stay_dates) |>
+    summarise(occupied_rooms = n(), .groups = "drop")
+
+# Ocupació diària de cada tipus d'hotel
+ggplot(occupation_data, aes(x = stay_dates, y = occupied_rooms, color = hotel)) +
+    geom_line() +
+    labs(
+        title = "Habitacions ocupades diàriament segons el tipus d'hotel",
+        x = "Data",
+        y = "Nombre d'habitacions ocupades",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+occupation_data$year <- as.integer(format.Date(occupation_data$stay_dates, "%Y"))
+ggplot(occupation_data, aes(
+    x = stay_dates,
+    y = occupied_rooms, color = as.factor(year)
+)) +
+    geom_line() +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Habitacions ocupades diàriament segons el tipus d'hotel i any",
+        x = "Data",
+        y = "Nombre d'habitacions ocupades",
+        color = "Any"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Ocupació mitjana setmanal de cada tipus d'hotel
+weekly_occupation <- occupation_data |>
+    mutate(week = floor_date(stay_dates, "week")) |>
+    group_by(hotel, week) |>
+    summarise(avg_occupied_rooms = mean(occupied_rooms), .groups = "drop")
+ggplot(weekly_occupation, aes(x = week, y = avg_occupied_rooms, color = hotel)) +
+    geom_line() +
+    labs(
+        title = "Habitacions ocupades setmanalment segons el tipus d'hotel",
+        x = "Setmana",
+        y = "Nombre mitjà d'habitacions ocupades",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Ocupació mitjana mensual de cada tipus d'hotel
+monthly_occupation <- occupation_data |>
+    mutate(month = floor_date(stay_dates, "month")) |>
+    group_by(hotel, month) |>
+    summarise(avg_occupied_rooms = mean(occupied_rooms), .groups = "drop")
+ggplot(monthly_occupation, aes(x = month, y = avg_occupied_rooms, color = hotel)) +
+    geom_line() +
+    labs(
+        title = "Habitacions ocupades mensualment segons el tipus d'hotel",
+        x = "Mes",
+        y = "Nombre mitjà d'habitacions ocupades",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Cost mitja per dia mitjà dels dos hotels
+daily_occupation_revenue <- occupation_data |>
+    left_join(
+        x |>
+            filter(is_canceled == 0) |>
+            rowwise() |>
+            mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+            unnest(cols = c(stay_dates)) |>
+            group_by(hotel, stay_dates) |>
+            summarise(daily_adr = mean(adr), .groups = "drop"),
+        by = c("hotel", "stay_dates")
+    ) |>
+    mutate(daily_revenue = occupied_rooms * daily_adr)
+ggplot(
+    daily_occupation_revenue,
+    aes(x = stay_dates, y = daily_revenue, color = hotel)
+) +
+    geom_line() +
+    labs(
+        title = "Ingressos diaris segons el tipus d'hotel",
+        x = "Data",
+        y = "Ingressos diaris",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Mostra en una línea l'ocupació per dia, i en un altra línea el preu per dia
+ggplot(daily_occupation_revenue, aes(x = stay_dates)) +
+    geom_line(aes(y = occupied_rooms, color = "Ocupació")) +
+    geom_line(aes(y = daily_adr, color = "Preu mitjà (ADR)")) +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Ocupació i preu mitjà diari segons el tipus d'hotel",
+        x = "Data",
+        y = "Valor",
+        color = "Mètrica"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Eliminació dels objectes temporals
+rm(occupation_data, monthly_occupation, weekly_occupation, daily_occupation_revenue)
+```
+
+```{r}
+# calcula els beneficis diaris a partir de l'ADR i les habitacions ocupades
+daily_revenue <- x |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    group_by(hotel, stay_dates) |>
+    summarise(daily_revenue = sum(adr), .groups = "drop")
+
+# Ingressos diaris de cada tipus d'hotel
+ggplot(daily_revenue, aes(x = stay_dates, y = daily_revenue, color = hotel)) +
+    geom_line() +
+    labs(
+        title = "Ingressos diaris segons el tipus d'hotel",
+        x = "Data",
+        y = "Ingressos diaris",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Ingressos setmanals mitjans de cada tipus d'hotel
+weekly_revenue <- daily_revenue |>
+    mutate(week = floor_date(stay_dates, "week")) |>
+    group_by(hotel, week) |>
+    summarise(avg_weekly_revenue = mean(daily_revenue), .groups = "drop")
+ggplot(weekly_revenue, aes(x = week, y = avg_weekly_revenue, color = hotel)) +
+    geom_line() +
+    labs(
+        title = "Ingressos setmanals mitjans segons el tipus d'hotel",
+        x = "Setmana",
+        y = "Ingressos setmanals mitjans",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Ingressos mensuals mitjans de cada tipus d'hotel
+monthly_revenue <- daily_revenue |>
+    mutate(month = floor_date(stay_dates, "month")) |>
+    group_by(hotel, month) |>
+    summarise(avg_monthly_revenue = mean(daily_revenue), .groups = "drop")
+ggplot(monthly_revenue, aes(x = month, y = avg_monthly_revenue, color = hotel)) +
+    geom_line() +
+    labs(
+        title = "Ingressos mensuals mitjans segons el tipus d'hotel",
+        x = "Mes",
+        y = "Ingressos mensuals mitjans",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Comparar el benefici dels dos hotels pel tipus de règim alimentari 'meal'
+revenue_by_meal_plan <- x |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    group_by(hotel, meal, stay_dates) |>
+    summarise(daily_revenue = sum(adr), .groups = "drop")
+ggplot(revenue_by_meal_plan, aes(
+    x = stay_dates,
+    y = daily_revenue, fill = fct_reorder(meal, daily_revenue, .desc = TRUE)
+)) +
+    geom_bar(stat = "identity", position = "stack") +
+    facet_wrap(~hotel) +
+    labs(
+        title = "Ingressos diaris segons el tipus d'hotel i règim alimentari",
+        x = "Data",
+        y = "Ingressos diaris",
+        color = "Tipus d'hotel i règim alimentari"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom"
+    )
+
+# Matriu de correlació per a les variables numèriques
+# selecciona el nom de les variables numèriques de daily_revenue
+xx <- x |>
+    group_by(country) |>
+    mutate(pais = n()) |>
+    filter(pais >= 1000)
+numeric_vars <- xx[, sapply(
+    xx,
+    function(col) is.numeric(col)
+)]
+correlation_matrix <- cor(numeric_vars, use = "complete.obs")
+melted_correlation <- melt(correlation_matrix)
+ggplot(data = melted_correlation, aes(
+    x = Var1, y = Var2, fill = value
+)) +
+    geom_tile() +
+    scale_fill_gradient2(
+        low = "blue", high = "red", mid = "white",
+        limit = c(-1, 1), name = "Correlation"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        plot.title = element_text(hjust = 0.5)
+    ) +
+    labs(title = "Matriu de correlació de variables numèriques")
+```

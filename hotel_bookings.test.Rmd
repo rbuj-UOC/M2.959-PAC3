@@ -1,0 +1,278 @@
+---
+title: "Analítica visual de dades de reserves d’hotel"
+author: "Robert Buj"
+date: "23-12-2025"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r packages, message=FALSE, warning=FALSE}
+library("tidyverse")
+library("fitdistrplus")
+library("ggstatsplot")
+library("ggplot2")
+library("ggiraph")
+library("kableExtra")
+library("MASS")
+library("patchwork")
+library("sf")
+library("survival")
+```
+
+```{r load_data}
+x <- read.csv("data/hotel_bookings.csv", stringsAsFactors = TRUE)
+x$dia <- as_date(paste0(
+    x$arrival_date_year, "-",
+    x$arrival_date_month, "-", x$arrival_date_day_of_month
+))
+x <- x |>
+    mutate(
+        # dates
+        reservation_status_date = as.Date(reservation_status_date),
+        # factors
+        hotel = as.factor(hotel),
+        agent = as.factor(agent),
+        arrival_date_month = factor(arrival_date_month, levels = month.name),
+        assigned_room_type = as.factor(assigned_room_type),
+        company = as.factor(company),
+        country = as.factor(country),
+        customer_type = as.factor(customer_type),
+        deposit_type = as.factor(deposit_type),
+        distribution_channel = as.factor(distribution_channel),
+        is_canceled = as.factor(is_canceled),
+        is_repeated_guest = as.factor(is_repeated_guest),
+        market_segment = as.factor(market_segment),
+        meal = as.factor(meal),
+        reservation_status = as.factor(reservation_status),
+        reserved_room_type = as.factor(reserved_room_type),
+        # numerics
+        adr = as.numeric(adr),
+        # integers
+        adults = as.integer(adults),
+        babies = as.integer(babies),
+        children = as.integer(children)
+    )
+x <- x[x$adults < 10, ]
+x <- x[x$children < 5, ]
+x <- x[x$babies < 5, ]
+x <- x[x$adr >= 0 & x$adr < 1000, ]
+x <- x[!is.na(x$adr), ]
+x[is.na(x$children), "children"] <- 0
+x <- x[x$adr > 0 &
+    (x$stays_in_week_nights + x$stays_in_weekend_nights) > 0 &
+    (x$adults + x$children + x$babies) > 0 &
+    !is.na(x$children), ]
+x$tipo <- ifelse(x$stays_in_weekend_nights == 0, "work",
+    ifelse(x$stays_in_week_nights == 0, "weekend",
+        ifelse(x$stays_in_week_nights == 1 & wday(x$dia) == 6, "weekend",
+            ifelse(x$stays_in_week_nights == 5 &
+                (x$stays_in_weekend_nights == 3 |
+                    x$stays_in_weekend_nights == 4), "package",
+            ifelse(x$stays_in_week_nights <= 5 &
+                x$stays_in_weekend_nights < 3, "work+rest",
+            "rest"
+            )
+            )
+        )
+    )
+)
+country_codes <- read.csv("data/countries_iso3166b.csv", stringsAsFactors = TRUE)
+country_codes <- country_codes[, c("country_common", "iso3")]
+x <- x |>
+    left_join(country_codes, by = c("country" = "iso3"))
+rm(country_codes)
+```
+
+```{r storytelling, message=FALSE}
+# Filtrar països amb més de 1000 reserves
+x_filtered <- x |>
+    group_by(country) |>
+    mutate(n_bookings = n()) |>
+    filter(n_bookings > 1000 & !is.na(country_common)) |>
+    ungroup()
+
+g1 <- ggplot(x_filtered, aes(x = hotel, fill = hotel)) +
+    geom_bar_interactive(aes(tooltip = paste(
+        "Hotel:", after_stat(x),
+        "\nReserves:", after_stat(count)
+    )), position = "dodge") +
+    labs(
+        title = "Distribució de reserves per tipus d'hotel",
+        x = "Tipus d'hotel", y = "Nombre de reserves"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")
+girafe(ggobj = g1)
+
+g2 <- ggplot(x_filtered, aes(x = hotel, y = adr, fill = hotel)) +
+    geom_violin_interactive(aes(tooltip = paste("Hotel:", hotel))) +
+    geom_boxplot_interactive(width = 0.1, aes(tooltip = "Caixa de quartils")) +
+    labs(
+        title = "Distribució de preus per hotel",
+        x = "Tipus d'hotel", y = "ADR (€)"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none")
+girafe(ggobj = g2)
+
+# Percentathe de cancel·lació per hotel
+cancel_hotel <- x_filtered |>
+    group_by(hotel, is_canceled) |>
+    summarise(count = n(), .groups = "drop") |>
+    group_by(hotel) |>
+    mutate(percentage = count / sum(count) * 100)
+
+g3 <- ggplot(cancel_hotel, aes(x = hotel, y = percentage, fill = is_canceled)) +
+    geom_col_interactive(aes(tooltip = paste(
+        "Hotel:", hotel, "\nCancel·lada:", is_canceled,
+        "\nPercentatge:", round(percentage, 1), "%"
+    ))) +
+    scale_fill_discrete(name = "Cancel·lada", labels = c("No", "Sí")) +
+    labs(
+        title = "Percentatge de cancel·lació per hotel",
+        x = "Tipus d'hotel",
+        y = "Percentatge (%)"
+    ) +
+    theme_minimal()
+girafe(ggobj = g3)
+
+g4 <- ggplot(x_filtered, aes(x = reorder(country, n_bookings), fill = country)) +
+    geom_bar_interactive(aes(tooltip = paste("Reserves:", n_bookings)), stat = "count") +
+    labs(title = "Nombre de reserves per país") +
+    coord_flip() +
+    theme_minimal()
+girafe(ggobj = g4)
+
+g5 <- ggplot(x_filtered, aes(x = arrival_date_month, fill = hotel)) +
+    geom_bar_interactive(aes(tooltip = paste(
+        "Mes:", after_stat(x),
+        "\nReserves:", after_stat(count)
+    ))) +
+    labs(
+        title = "Estacionalitat de reserves",
+        x = "Mes d'arribada", y = "Nombre de reserves"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+girafe(ggobj = g5)
+
+# Nombre de clients per país segons tipus d'hotel
+country_hotel <- x_filtered |>
+    filter(country %in% x_filtered$country) |>
+    group_by(country, hotel) |>
+    summarise(count = n(), .groups = "drop")
+
+g6 <- ggplot(country_hotel, aes(x = reorder(country, -count), y = count, fill = hotel)) +
+    geom_col_interactive(aes(tooltip = paste(
+        "País:", country,
+        "\nHotel:", hotel,
+        "\nReserves:", count
+    ))) +
+    labs(
+        title = "9. Preferència d'hotel per país",
+        x = "País", y = "Nombre de reserves"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+girafe(ggobj = g6)
+
+p7 <- ggplot(x_filtered, aes(x = reservation_status, fill = reservation_status)) +
+    geom_bar_interactive(aes(tooltip = paste("Count:", after_stat(count)))) +
+    labs(title = "Tipus de reserva") +
+    theme_minimal() +
+    theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+girafe(ggobj = p7)
+
+g8 <- ggplot(x_filtered, aes(x = market_segment, fill = market_segment)) +
+    geom_bar_interactive(aes(tooltip = paste(
+        "Segment:", after_stat(x),
+        "\nReserves:", after_stat(count)
+    ))) +
+    labs(
+        title = "Segmentació de mercat",
+        x = "Segment de mercat", y = "Nombre de reserves"
+    ) +
+    theme_minimal() +
+    theme(
+        legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+girafe(ggobj = g8)
+
+g9 <- ggplot(x_filtered, aes(x = distribution_channel, fill = distribution_channel)) +
+    geom_bar_interactive(aes(tooltip = paste("Count:", after_stat(count)))) +
+    labs(title = "Nombre de reserves per canal de distribució") +
+    theme_minimal()
+girafe(ggobj = g9)
+
+g10 <- ggplot(x_filtered, aes(x = customer_type, fill = customer_type)) +
+    geom_bar_interactive(aes(tooltip = paste("Count:", after_stat(count)))) +
+    labs(title = "Tipus de client") +
+    theme_minimal()
+girafe(ggobj = g10)
+
+g11 <- ggplot(x_filtered, aes(x = deposit_type, fill = deposit_type)) +
+    geom_bar_interactive(aes(tooltip = paste("Count:", after_stat(count)))) +
+    scale_y_log10(labels = scales::comma) +
+    labs(
+        title = "Tipus de Dipòsit",
+        x = "Tipus de diposit",
+        y = "Nombre (escala logarítmica)"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.y = element_text(angle = 90, hjust = 0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+girafe(ggobj = g11)
+
+# Composició de grups (adults, nens, nadons)
+group_composition <- x_filtered |>
+    mutate(group_type = case_when(
+        children > 0 & babies > 0 ~ "Família completa",
+        children > 0 ~ "Amb nens",
+        babies > 0 ~ "Amb nadons",
+        TRUE ~ "Adults"
+    )) |>
+    group_by(group_type, hotel) |>
+    summarise(count = n(), avg_adr = mean(adr), .groups = "drop")
+
+g12 <- ggplot(group_composition, aes(x = group_type, y = count, fill = hotel)) +
+    geom_col_interactive(aes(tooltip = paste(
+        "Tipus:", group_type,
+        "\nHotel:", hotel,
+        "\nReserves:", count,
+        "\nADR mitjà: €", round(avg_adr, 2)
+    ))) +
+    scale_y_log10(labels = scales::comma) +
+    labs(
+        title = "Composició de grups per hotel",
+        x = "Tipus de grup",
+        y = "Nombre de reserves (escala logarítmica)"
+    ) +
+    theme_minimal() +
+    theme(
+        axis.text.y = element_text(angle = 90, hjust = 0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+girafe(ggobj = g12)
+```

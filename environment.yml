@@ -1,0 +1,20 @@
+name: meteo_scraper
+channels:
+  - r
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base=4.5.2
+  - r-ggplot2
+  - r-fitdistrplus
+  - r-ggstatsplot
+  - r-knitr
+  - r-kableExtra
+  - r-languageserver
+  - r-MASS
+  - r-reshape2
+  - r-rmarkdown
+  - r-sf
+  - r-survival
+  - r-svglite
+  - r-tidyverse

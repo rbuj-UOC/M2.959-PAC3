@@ -48,4 +48,10 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
+img/
+.conda/
 .DS_Store
+hotel_bookings.log
+hotel_bookings.pdf
+hotel_bookings.test.html
+hotel_bookings.test.log
