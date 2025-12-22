@@ -1,3 +1,5 @@
+[![Publish hotel bookings report](https://github.com/rbuj-UOC/M2.959-PAC3/actions/workflows/publish-pages.yml/badge.svg)](https://github.com/rbuj-UOC/M2.959-PAC3/actions/workflows/publish-pages.yml)
+
 # Entorn virtual amb conda
 
 ## Crear un nou entorn virtual utilitzant conda
