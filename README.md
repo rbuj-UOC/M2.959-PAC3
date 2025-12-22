@@ -1,20 +1,17 @@
-# Virtual environment with conda
+# Entorn virtual amb conda
 
-## Create new virtual environment using conda
+## Crear un nou entorn virtual utilitzant conda
 
-To create a virtual environment with conda, run the following command in the
-project root directory:
+Per crear un entorn virtual amb conda, executa la següent comanda al directori arrel del projecte:
 
 ```sh
 conda env create --prefix=./.conda --file=environment.yml
 ```
 
-To ensure that the virtual environment has been created correctly, you can check
-that the  `.conda/` directory has been created in the project root directory.
+Per assegurar-te que l'entorn virtual s'ha creat correctament, pots comprovar que el directori `.conda/` s'ha creat al directori arrel del projecte.
 
 > [!NOTE]
-> If you do not want to use the `environment.yml` file, you can create the
-> virtual environment with the following commands:
+> Si no vols utilitzar el fitxer `environment.yml`, pots crear l'entorn virtual amb les següents comandes:
 
 ```sh
 conda create --prefix=./.conda
@@ -25,8 +22,7 @@ conda install r-base=4.5.2 r-ggplot2 r-fitdistrplus r-kableExtra r-knitr \
 ```
 
 > [!TIP]
-> Miniconda requires less space and is lighter than Anaconda. To install
-> Miniconda on macOS systems, you can use Homebrew:
+> Miniconda requereix menys espai i és més lleuger que Anaconda. Per instal·lar Miniconda en sistemes macOS, pots utilitzar Homebrew:
 
 ```sh
 brew install --cask miniconda
@@ -37,28 +33,45 @@ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/ma
 conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 ```
 
-## Activate and deactivate the virtual environment with conda
+## Activar i desactivar l'entorn virtual amb conda
 
-To activate the virtual environment, run the following command:
+Per activar l'entorn virtual, executa la següent comanda:
 
 ```sh
 conda activate ./.conda
 ```
 
-To deactivate the virtual environment, run the following command:
+Per desactivar l'entorn virtual, executa la següent comanda:
 
 ```sh
 conda deactivate
 ```
 
 > [!TIP]
-> To change the virtual environment prompt so that it shows the environment
-> name once activated, you can run the following command to shorten it:
+> Per canviar el missatge de l'entorn virtual perquè mostri el nom de l'entorn un cop activat, pots executar la següent comanda per escurçar-lo:
 
 ```sh
 conda config --set env_prompt '({name}) '
 ```
 
-## Country Codes (ISO 3166)
+## Codis de Països (ISO 3166)
 
 <https://www.kaggle.com/datasets/wbdill/country-codes-iso-3166>
+
+## Estructura del Projecte
+
+```plaintext
+/
+├── .editorconfig            # Configuració d'editor per a consistència de codi
+├── .gitignore               # Fitxer per excloure arxius del control de versions
+├── README.md                # Documentació general quant al projecte
+├── LICENSE                  # Fitxer de la llicència
+├── .vscode/
+│   ├── settings.json        # Configuració de l'espai de treball
+│   └── extensions.json      # Extensions recomanades de VS Code
+├── data/
+│   └── hotel_bookings.csv   # Dataset amb les dades dels dos hotels
+├── environment.yml          # Dependències per crear un entorn virtual amb conda
+├── hotel_bookings.Rmd       # Fitxer amb l'anàlisi estadística descriptiva
+└── hotel_bookings.test.Rmd  # Fitxer per fer proves amb el dataset
+```
