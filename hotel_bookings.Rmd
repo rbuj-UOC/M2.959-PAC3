@@ -2716,6 +2716,7 @@ distribution_channels <- xx |>
         cancellation_rate = round(mean(as.numeric(is_canceled) - 1) * 100, 1),
         avg_stay = round(mean(stays_in_weekend_nights + stays_in_week_nights), 1)
     ) |>
+    filter(total_bookings >= 1000) |>
     arrange(desc(total_bookings))
 distribution_channels
 
@@ -2724,7 +2725,28 @@ ggplot(distribution_channels, aes(
     y = cancellation_rate, fill = market_segment
 )) +
     geom_col() +
+    scale_fill_manual(
+        values = c(
+            "Online TA" = "#08519c",
+            "Offline TA/TO" = "#3182bd",
+            "Groups" = "#6baed6",
+            "Direct" = "#9ecae1",
+            "Corporate" = "#c6dbef"
+        )
+    ) +
     geom_text(aes(label = paste0(cancellation_rate, "%")), vjust = -0.5, size = 5) +
+    # línia amb el percentatge sobre el total de reserves
+    geom_line(aes(market_segment, total_bookings / max(total_bookings) * max(cancellation_rate)),
+        group = 1, color = "red", size = 1
+    ) +
+    geom_point(aes(market_segment, total_bookings / max(total_bookings) * max(cancellation_rate)),
+        color = "red", size = 3
+    ) +
+    scale_y_continuous(
+        sec.axis = sec_axis(~ . * max(distribution_channels$total_bookings) / max(distribution_channels$cancellation_rate),
+            name = "Total de reserves"
+        )
+    ) +
     labs(
         title = "Taxa de cancel·lació per segment de mercat",
         x = "Segment de mercat",
@@ -2733,12 +2755,12 @@ ggplot(distribution_channels, aes(
     theme_minimal() +
     theme(
         plot.title = element_text(hjust = 0, size = 48),
+        axis.title = element_text(size = 20),
         axis.text.x = element_text(size = 16, angle = 45, hjust = 1),
         axis.text.y = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
-        legend.position = "none",
-        axis.title = element_blank()
+        legend.position = "none"
     )
 
 # ggsave("img/market_segment_cancellation.svg",
