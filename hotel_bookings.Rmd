@@ -2165,7 +2165,7 @@ p <- ggplot(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         # text de les marques dels eixos
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size = 18),
@@ -2191,7 +2191,7 @@ p <- ggplot(
 # desa la imatge en un fitxer SVG
 # ggsave("img/weekly_revenue.svg",
 #     plot = p,
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 rm(p)
@@ -2227,7 +2227,7 @@ p <- ggplot(weekly_occupation, aes(x = week)) +
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         # text de les marques dels eixos
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size = 18),
@@ -2253,7 +2253,7 @@ p <- ggplot(weekly_occupation, aes(x = week)) +
 # desa la imatge en un fitxer SVG
 # ggsave("img/weekly_occupation_adr.svg",
 #     plot = p,
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 rm(p)
@@ -2283,11 +2283,11 @@ p <- ggplot(revenue_by_meal_plan, aes(
     scale_fill_manual(
         name = "Règim alimentari",
         labels = c(
-            "Undefined" = "0. No definit",
-            "SC" = "0. Sense menjar",
-            "BB" = "1. Esmorzar",
-            "HB" = "2. Mitja pensió",
-            "FB" = "3. Pensió completa"
+            "Undefined" = "No definit",
+            "SC" = "Sense menjar",
+            "BB" = "Esmorzar",
+            "HB" = "Mitja pensió",
+            "FB" = "Pensió completa"
         ),
         values = c(
             "Undefined" = "#cbcbcb",
@@ -2305,7 +2305,7 @@ p <- ggplot(revenue_by_meal_plan, aes(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
@@ -2324,7 +2324,7 @@ p <- ggplot(revenue_by_meal_plan, aes(
     )
 # ggsave("img/revenue_by_meal_plan.svg",
 #     plot = p,
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 rm(p)
@@ -2362,7 +2362,7 @@ p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled
     ) +
     theme_void() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         # text de les marques dels eixos
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
@@ -2384,7 +2384,7 @@ p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled
     )
 # ggsave("img/cancellation_by_hotel.svg",
 #     plot = p,
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2410,7 +2410,7 @@ p <- ggplot(xx_is_portugal, aes(x = factor(1), y = pct, fill = is_canceled)) +
     labs(title = "Percentatge de cancel·lacions per país d'origen", x = NULL, y = NULL) +
     theme_void() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         # text de les marques dels eixos
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
@@ -2434,7 +2434,7 @@ rm(xx_is_portugal)
 
 # ggsave("img/cancellation_by_origin.svg",
 #     plot = p,
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2469,7 +2469,7 @@ p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled
     ) +
     theme_void() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         # text de les marques dels eixos
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
@@ -2491,7 +2491,7 @@ p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled
     )
 # ggsave("img/cancellation_by_deposit.svg",
 #     plot = p,
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2532,7 +2532,7 @@ ggplot(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2542,7 +2542,7 @@ ggplot(
 
 # ggsave("img/monthly_occupancy.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2605,7 +2605,7 @@ ggplot(demand_pattern[!duplicated(demand_pattern), ], aes(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2615,7 +2615,7 @@ ggplot(demand_pattern[!duplicated(demand_pattern), ], aes(
 
 # ggsave("img/seasonal_pattern.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2657,7 +2657,7 @@ ggplot(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2668,7 +2668,7 @@ ggplot(
 
 # ggsave("img/yearly_seasonality.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2701,7 +2701,7 @@ ggplot(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2711,7 +2711,7 @@ ggplot(
 
 # ggsave("img/stay_duration.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2768,7 +2768,7 @@ ggplot(distribution_channels, aes(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.title = element_text(size = 20),
         axis.text.x = element_text(size = 16, angle = 45, hjust = 1),
         axis.text.y = element_text(size = 18),
@@ -2779,7 +2779,7 @@ ggplot(distribution_channels, aes(
 
 # ggsave("img/market_segment_cancellation.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2818,7 +2818,7 @@ ggplot(lead_time_cancellation, aes(x = lead_time_category, y = cancellation_rate
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2828,7 +2828,7 @@ ggplot(lead_time_cancellation, aes(x = lead_time_category, y = cancellation_rate
 
 # ggsave("img/lead_time_cancellation.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2860,13 +2860,13 @@ ggplot(
     geom_boxplot(alpha = 0.7, outliers = FALSE) +
     coord_flip() +
     labs(
-        title = "Durada d'estada: Portuguesos vs. Internacionals",
+        title = "Durada d'estada: local vs. extern",
         x = "Origen",
         y = "Nits d'estada"
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2876,7 +2876,7 @@ ggplot(
 
 # ggsave("img/stay_by_origin.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
@@ -2916,7 +2916,7 @@ ggplot(channel_distribution, aes(
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2924,7 +2924,7 @@ ggplot(channel_distribution, aes(
     )
 # ggsave("img/client_flexibility_bubble.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 
@@ -2938,7 +2938,7 @@ ggplot(channel_distribution, aes(x = "", y = percentage, fill = total_bookings))
     ) +
     theme_minimal() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2949,7 +2949,7 @@ ggplot(channel_distribution, aes(x = "", y = percentage, fill = total_bookings))
     )
 # ggsave("img/client_flexibility_pie.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 
@@ -2978,7 +2978,7 @@ ggplot(channel_summary, aes(x = reorder(channel_type, -total_bookings), y = perc
     ) +
     theme_void() +
     theme(
-        plot.title = element_text(hjust = 0, size = 48),
+        plot.title = element_text(hjust = 0, size = 36),
         axis.text = element_text(size = 18),
         panel.background = element_rect(fill = "transparent", color = NA),
         plot.background = element_rect(fill = "transparent", color = NA),
@@ -2988,7 +2988,7 @@ ggplot(channel_summary, aes(x = reorder(channel_type, -total_bookings), y = perc
 
 # ggsave("img/client_flexibility.svg",
 #     plot = last_plot(),
-#     width = 16, height = 9,
+#     width = 11.2, height = 9, # aspect ratio 16:9, width x 0.7 (storytell area)
 #     bg = "transparent"
 # )
 ```
