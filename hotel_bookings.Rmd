@@ -2189,11 +2189,11 @@ p <- ggplot(
         legend.title = element_blank()
     )
 # desa la imatge en un fitxer SVG
-ggsave("img/weekly_revenue.svg",
-    plot = p,
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/weekly_revenue.svg",
+#     plot = p,
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 rm(p)
 ```
 
@@ -2251,7 +2251,87 @@ p <- ggplot(weekly_occupation, aes(x = week)) +
         legend.title = element_blank()
     )
 # desa la imatge en un fitxer SVG
-ggsave("img/weekly_occupation_adr.svg",
+# ggsave("img/weekly_occupation_adr.svg",
+#     plot = p,
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
+rm(p)
+```
+
+**Regim alimentari i ingressos: una relació clau:**
+
+```{r}
+# Comparar el benefici dels dos hotels pel tipus de règim alimentari 'meal'
+revenue_by_meal_plan <- x |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    group_by(hotel, meal, stay_dates) |>
+    summarise(daily_revenue = sum(adr), .groups = "drop")
+revenue_by_meal_plan
+
+p <- ggplot(revenue_by_meal_plan, aes(
+    x = stay_dates,
+    y = daily_revenue, fill = meal
+)) +
+    geom_bar(stat = "identity", position = "stack", alpha = 0.8, color = "white", size = 0.2) +
+    scale_y_continuous(labels = scales::label_number(scale = 1, big.mark = ".")) +
+    theme_minimal() +
+    theme(
+        panel.border = element_blank(),
+        panel.grid.major = element_line(color = "grey80"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5, size = 20)
+    )
+)) +
+    geom_bar(stat = "identity", position = "stack") +
+    facet_wrap(~hotel) +
+    scale_y_continuous(labels = scales::label_number(scale = 1, big.mark = ".")) +
+    scale_fill_manual(
+        name = "Règim alimentari",
+        labels = c(
+            "Undefined" = "0. No definit",
+            "SC" = "0. Sense menjar",
+            "BB" = "1. Esmorzar",
+            "HB" = "2. Mitja pensió",
+            "FB" = "3. Pensió completa"
+        ),
+        values = c(
+            "Undefined" = "#cbcbcb",
+            "SC" = "#dad9d9",
+            "BB" = "#8ae3f9",
+            "HB" = "#0033ff",
+            "FB" = "#FF00CC"
+        )
+    ) +
+    labs(
+        title = "Ingressos diaris segons el règim alimentari",
+        x = "Data",
+        y = "Ingressos diaris",
+        fill = "Règim alimentari"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.box.background = element_rect(fill = "transparent", color = NA),
+        legend.key = element_rect(fill = "transparent", color = NA),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.major = element_line(size = 1),
+        panel.grid.minor = element_line(size = 0.5),
+        strip.text = element_text(size = 24),
+        legend.position = "bottom",
+        legend.text = element_text(size = 20),
+        legend.title = element_blank()
+    )
+ggsave("img/revenue_by_meal_plan.svg",
     plot = p,
     width = 16, height = 9,
     bg = "transparent"
@@ -2311,11 +2391,11 @@ p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled
         legend.text = element_text(size = 20),
         legend.title = element_blank()
     )
-ggsave("img/cancellation_by_hotel.svg",
-    plot = p,
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/cancellation_by_hotel.svg",
+#     plot = p,
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Origen Geogràfic: Clients Locals vs. Internacionals**
@@ -2361,11 +2441,11 @@ p <- ggplot(xx_is_portugal, aes(x = factor(1), y = pct, fill = is_canceled)) +
     )
 rm(xx_is_portugal)
 
-ggsave("img/cancellation_by_origin.svg",
-    plot = p,
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/cancellation_by_origin.svg",
+#     plot = p,
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Dipòsits No Reemborsables: Una Anomalia Preocupant**
@@ -2418,11 +2498,11 @@ p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled
         legend.text = element_text(size = 20),
         legend.title = element_blank()
     )
-ggsave("img/cancellation_by_deposit.svg",
-    plot = p,
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/cancellation_by_deposit.svg",
+#     plot = p,
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 ### PART II: ESTACIONALITAT I OCUPACIÓ
@@ -2469,11 +2549,11 @@ ggplot(
         axis.title = element_blank()
     )
 
-ggsave("img/monthly_occupancy.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/monthly_occupancy.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Valls de Demanda**
@@ -2528,11 +2608,11 @@ ggplot(demand_pattern[!duplicated(demand_pattern), ], aes(
         axis.title = element_blank()
     )
 
-ggsave("img/seasonal_pattern.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/seasonal_pattern.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Patró Consistent**
@@ -2581,11 +2661,11 @@ ggplot(
         axis.title = element_blank()
     )
 
-ggsave("img/yearly_seasonality.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/yearly_seasonality.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Nits d'Estada: Resort Supera City en Durada**
@@ -2624,11 +2704,11 @@ ggplot(
         axis.title = element_blank()
     )
 
-ggsave("img/stay_duration.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/stay_duration.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 ### PART III: SEGMENTACIÓ DE CLIENTS
@@ -2670,11 +2750,11 @@ ggplot(distribution_channels, aes(
         axis.title = element_blank()
     )
 
-ggsave("img/market_segment_cancellation.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/market_segment_cancellation.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Clients Transitoris: Alta Flexibilitat, Risc Elevat**
@@ -2710,11 +2790,11 @@ ggplot(lead_time_cancellation, aes(x = lead_time_category, y = cancellation_rate
         axis.title = element_blank()
     )
 
-ggsave("img/lead_time_cancellation.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/lead_time_cancellation.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Clients Locals: Patrons de Reserva Curts**
@@ -2758,11 +2838,11 @@ ggplot(
         axis.title = element_blank()
     )
 
-ggsave("img/stay_by_origin.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/stay_by_origin.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
 
 **Més Enllà de TA/TO: Construir Canals Alternatius**
@@ -2806,12 +2886,11 @@ ggplot(channel_distribution, aes(
         plot.background = element_rect(fill = "transparent", color = NA),
         legend.position = "right"
     )
-ggsave("img/client_flexibility_bubble.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
-
+# ggsave("img/client_flexibility_bubble.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 
 # grafica de sectors de channel_distribution
 ggplot(channel_distribution, aes(x = "", y = percentage, fill = total_bookings)) +
@@ -2832,11 +2911,12 @@ ggplot(channel_distribution, aes(x = "", y = percentage, fill = total_bookings))
         axis.ticks = element_blank(),
         axis.text.x = element_blank()
     )
-ggsave("img/client_flexibility_pie.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/client_flexibility_pie.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
+
 # Simplificar a tres categories: 0, 1-2, 3+
 channel_summary <- xx |>
     mutate(channel_type = case_when(
@@ -2870,9 +2950,9 @@ ggplot(channel_summary, aes(x = reorder(channel_type, -total_bookings), y = perc
         axis.title = element_blank()
     )
 
-ggsave("img/client_flexibility.svg",
-    plot = last_plot(),
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/client_flexibility.svg",
+#     plot = last_plot(),
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 ```
