@@ -2274,17 +2274,8 @@ revenue_by_meal_plan
 
 p <- ggplot(revenue_by_meal_plan, aes(
     x = stay_dates,
+    # y = daily_revenue, fill = fct_reorder(meal, daily_revenue, .desc = FALSE)
     y = daily_revenue, fill = meal
-)) +
-    geom_bar(stat = "identity", position = "stack", alpha = 0.8, color = "white", size = 0.2) +
-    scale_y_continuous(labels = scales::label_number(scale = 1, big.mark = ".")) +
-    theme_minimal() +
-    theme(
-        panel.border = element_blank(),
-        panel.grid.major = element_line(color = "grey80"),
-        panel.grid.minor = element_blank(),
-        plot.title = element_text(hjust = 0.5, size = 20)
-    )
 )) +
     geom_bar(stat = "identity", position = "stack") +
     facet_wrap(~hotel) +
@@ -2331,11 +2322,11 @@ p <- ggplot(revenue_by_meal_plan, aes(
         legend.text = element_text(size = 20),
         legend.title = element_blank()
     )
-ggsave("img/revenue_by_meal_plan.svg",
-    plot = p,
-    width = 16, height = 9,
-    bg = "transparent"
-)
+# ggsave("img/revenue_by_meal_plan.svg",
+#     plot = p,
+#     width = 16, height = 9,
+#     bg = "transparent"
+# )
 rm(p)
 ```
 
@@ -2762,8 +2753,9 @@ ggplot(distribution_channels, aes(
 ```{r}
 # Gràfica: Lead time vs. Cancel·lació per segment
 lead_time_cancellation <- xx |>
+    filter(lead_time >= 0 & !is.na(lead_time)) |>
     mutate(lead_time_category = cut(lead_time,
-        breaks = c(0, 7, 30, 90, 500),
+        breaks = c(0, 7, 30, 90, 2000),
         labels = c("0-7 dies", "8-30 dies", "31-90 dies", ">90 dies")
     )) |>
     group_by(lead_time_category) |>
@@ -2775,8 +2767,16 @@ lead_time_cancellation <- xx |>
 ggplot(lead_time_cancellation, aes(x = lead_time_category, y = cancellation_rate, fill = lead_time_category)) +
     geom_col() +
     geom_text(aes(label = paste0(cancellation_rate, "%")), vjust = -0.5, size = 5) +
+    scale_fill_manual(
+        values = c(
+            "0-7 dies" = "#6baed6",
+            "8-30 dies" = "#3182bd",
+            "31-90 dies" = "#08519c",
+            ">90 dies" = "#ff0000"
+        )
+    ) +
     labs(
-        title = "Cancel·lacions segons temps d'anticipació de reserva",
+        title = "Cancel·lacions segons temps d'anticipació",
         x = "Anticipació (Lead time)",
         y = "Taxa de cancel·lació (%)"
     ) +
