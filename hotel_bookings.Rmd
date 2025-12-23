@@ -2583,6 +2583,20 @@ ggplot(demand_pattern[!duplicated(demand_pattern), ], aes(
     y = avg_occupancy, fill = season
 )) +
     geom_col() +
+    scale_fill_manual(
+        values = c(
+            "Alta (Maig-Octubre)" = "#08519c",
+            "Nadal" = "#3182bd",
+            "Baixa (Nov-Febrer)" = "#9ecae1"
+        )
+    ) +
+    # línia amb la mitjana d'ocupació
+    # geom_hline(yintercept = mean(monthly_occupancy$avg_occupancy), linetype = "dashed", color = "red", size = 1) +
+    # annotate("text",
+    #     x = 2.5, y = mean(monthly_occupancy$avg_occupancy) + 2,
+    #     label = paste0("Mitjana d'ocupació: ", round(mean(monthly_occupancy$avg_occupancy), 1), "%"),
+    #     color = "red", size = 6
+    # ) +
     geom_text(aes(label = paste0(avg_occupancy, "%")), vjust = -0.5, size = 6) +
     labs(
         title = "Patró estacional: Ocupació per temporada",
