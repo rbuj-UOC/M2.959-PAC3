@@ -2520,7 +2520,7 @@ monthly_occupancy[!duplicated(monthly_occupancy), ]
 
 ggplot(
     monthly_occupancy[!duplicated(monthly_occupancy), ],
-    aes(x = factor(month, labels = month.name), y = avg_occupancy)
+    aes(x = factor(month, labels = month.abb), y = avg_occupancy)
 ) +
     geom_line(color = "steelblue", linewidth = 1.5) +
     geom_point(size = 4, color = "steelblue") +
