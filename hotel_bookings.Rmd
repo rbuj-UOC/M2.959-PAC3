@@ -1022,7 +1022,7 @@ ggplot(reservation_status_summary, aes(x = factor(1), y = prop, fill = reservati
     geom_col(width = 1) +
     theme_void() +
     theme(plot.title = element_text(hjust = 0.5))
-rm(reservation_status_summary)
+# rm(reservation_status_summary)
 ```
 
 ```{r cancellation_summary}
@@ -1047,7 +1047,7 @@ ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled)) +
     geom_col(width = 1) +
     theme_void() +
     theme(plot.title = element_text(hjust = 0.5))
-rm(cancellation_summary)
+# rm(cancellation_summary)
 ```
 
 ```{r cancellation_is_portugal}
@@ -2020,7 +2020,7 @@ ggplot(daily_occupation_revenue, aes(x = stay_dates)) +
     )
 
 # Eliminació dels objectes temporals
-rm(occupation_data, monthly_occupation, weekly_occupation, daily_occupation_revenue)
+# rm(occupation_data, monthly_occupation, weekly_occupation, daily_occupation_revenue)
 ```
 
 ```{r}
@@ -2138,4 +2138,741 @@ ggplot(data = melted_correlation, aes(
         plot.title = element_text(hjust = 0.5)
     ) +
     labs(title = "Matriu de correlació de variables numèriques")
+```
+
+## Narració
+
+### Introducció: El Desafiament Operatiu
+
+**Els patrons importen**
+
+```{r}
+# Ingressos setmanals de cada tipus d'hotel
+p <- ggplot(
+    daily_revenue |>
+        mutate(week = floor_date(stay_dates, "week")) |>
+        group_by(hotel, week) |>
+        summarise(weekly_revenue = sum(daily_revenue), .groups = "drop"),
+    aes(x = week, y = weekly_revenue, color = hotel),
+) +
+    scale_y_continuous(labels = scales::label_number(scale = 1, big.mark = ".")) +
+    geom_line(linewidth = 1.5) +
+    labs(
+        title = "Ingressos setmanals segons el tipus d'hotel",
+        x = "Setmana",
+        y = "Ingressos setmanals",
+        color = "Tipus d'hotel"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        # text de les marques dels eixos
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        # fons transparents
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.box.background = element_rect(fill = "transparent", color = NA),
+        legend.key = element_rect(fill = "transparent", color = NA),
+        # text dels títols dels eixos
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        # augmenta la mida de la graella
+        panel.grid.major = element_line(size = 1),
+        panel.grid.minor = element_line(size = 0.5),
+        # text del facet
+        strip.text = element_text(size = 24),
+        # llegenda
+        legend.position = "bottom",
+        legend.text = element_text(size = 20),
+        legend.title = element_blank()
+    )
+# desa la imatge en un fitxer SVG
+ggsave("img/weekly_revenue.svg",
+    plot = p,
+    width = 16, height = 9,
+    bg = "transparent"
+)
+rm(p)
+```
+
+**Els hotels s'enfronten a una realitat preocupant**
+
+```{r}
+# Mostra en una línia l'ocupació mitjana setmanal, i en un altra línia el preu
+# mitjà setmanal
+p <- ggplot(weekly_occupation, aes(x = week)) +
+    geom_line(
+        aes(
+            y = avg_occupied_rooms,
+            color = "Ocupació mitjana setmanal"
+        ),
+        linewidth = 1.5
+    ) +
+    geom_line(
+        data = daily_occupation_revenue |>
+            mutate(week = floor_date(stay_dates, "week")) |>
+            group_by(hotel, week) |>
+            summarise(avg_weekly_adr = mean(daily_adr), .groups = "drop"),
+        aes(y = avg_weekly_adr, color = "ADR mitjà setmanal"),
+        linewidth = 1.5
+    ) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    labs(
+        title = "Ocupació i preu mitjà setmanal",
+        x = "Setmana",
+        y = "Valor",
+        color = "Mètrica"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        # text de les marques dels eixos
+        axis.text.x = element_text(size = 18),
+        axis.text.y = element_text(size = 18),
+        # fons transparents
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.box.background = element_rect(fill = "transparent", color = NA),
+        legend.key = element_rect(fill = "transparent", color = NA),
+        # text dels títols dels eixos
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        # augmenta la mida de la graella
+        panel.grid.major = element_line(size = 1),
+        panel.grid.minor = element_line(size = 0.5),
+        # text del facet
+        strip.text = element_text(size = 24),
+        # llegenda
+        legend.position = "bottom",
+        legend.text = element_text(size = 20),
+        legend.title = element_blank()
+    )
+# desa la imatge en un fitxer SVG
+ggsave("img/weekly_occupation_adr.svg",
+    plot = p,
+    width = 16, height = 9,
+    bg = "transparent"
+)
+rm(p)
+```
+
+### PART I: PATRONS DE CANCEL·LACIÓ DIFERENCIATS
+
+**Hotels City vs. Resort: Disparitats de Cancel·lació**
+
+```{r}
+# Gràfica: Taxa de cancel·lació per tipus d'hotel diagrama de sectors de is_canceled
+cancellation_summary <- xx |>
+    group_by(hotel, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(hotel) |>
+    tidyr::complete(is_canceled = c("0", "1"), fill = list(n = 0)) |>
+    mutate(pct = n / sum(n))
+p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_wrap(~hotel, strip.position = "bottom") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat",
+        values = c("0" = "#2ecc71", "1" = "#e74c3c"),
+        labels = c("No cancel·lada", "Cancel·lada")
+    ) +
+    geom_col(width = 1) +
+    geom_text(aes(label = percent(pct, accuracy = 0.1)),
+        position = position_stack(vjust = 0.5),
+        size = 5, fontface = "bold", color = "white"
+    ) +
+    labs(
+        title = "Percentatge de cancel·lacions per tipus d'hotel",
+        x = NULL, y = NULL
+    ) +
+    theme_void() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        # text de les marques dels eixos
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        # fons transparents
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.box.background = element_rect(fill = "transparent", color = NA),
+        legend.key = element_rect(fill = "transparent", color = NA),
+        # text dels títols dels eixos
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        # text del facet
+        strip.text = element_text(size = 24),
+        # llegenda
+        legend.position = "bottom",
+        legend.text = element_text(size = 20),
+        legend.title = element_blank()
+    )
+ggsave("img/cancellation_by_hotel.svg",
+    plot = p,
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Origen Geogràfic: Clients Locals vs. Internacionals**
+
+```{r}
+# Gràfica: Taxa de cancel·lació per origen (País)
+# Categoritzar entre Portugal i International
+xx_is_portugal <- xx |>
+    mutate(is_portugal = ifelse(country == "PRT", "Portugal", "Altres")) |>
+    group_by(is_portugal, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(is_portugal) |>
+    mutate(pct = n / sum(n))
+p <- ggplot(xx_is_portugal, aes(x = factor(1), y = pct, fill = is_canceled)) +
+    geom_col(width = 1) +
+    coord_polar(theta = "y") +
+    facet_wrap(~is_portugal, strip.position = "bottom") +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(name = "Estat", labels = c("No Cancel·lada", "Cancel·lada"), values = c("0" = "#2ecc71", "1" = "#e74c3c")) +
+    geom_text(aes(label = percent(pct, accuracy = 0.1)), position = position_stack(vjust = 0.5), size = 5, fontface = "bold", color = "white") +
+    labs(title = "Percentatge de cancel·lacions per país d'origen", x = NULL, y = NULL) +
+    theme_void() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        # text de les marques dels eixos
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        # fons transparents
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.box.background = element_rect(fill = "transparent", color = NA),
+        legend.key = element_rect(fill = "transparent", color = NA),
+        # text dels títols dels eixos
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        # text del facet
+        strip.text = element_text(size = 24),
+        # llegenda
+        legend.position = "bottom",
+        legend.text = element_text(size = 20),
+        legend.title = element_blank()
+    )
+rm(xx_is_portugal)
+
+ggsave("img/cancellation_by_origin.svg",
+    plot = p,
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Dipòsits No Reemborsables: Una Anomalia Preocupant**
+
+```{r}
+# Gràfica: Taxa de cancel·lació per tipus de dipòsit diagrama de sectors de is_canceled
+cancellation_summary <- xx |>
+    group_by(deposit_type, is_canceled) |>
+    summarise(n = n(), .groups = "drop") |>
+    group_by(deposit_type) |>
+    tidyr::complete(is_canceled = c("0", "1"), fill = list(n = 0)) |>
+    mutate(pct = n / sum(n))
+p <- ggplot(cancellation_summary, aes(x = factor(1), y = pct, fill = is_canceled)) +
+    coord_polar(theta = "y", start = 0) +
+    facet_wrap(~deposit_type, strip.position = "bottom") +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(
+        name = "Estat",
+        values = c("0" = "#2ecc71", "1" = "#e74c3c"),
+        labels = c("No cancel·lada", "Cancel·lada")
+    ) +
+    geom_col(width = 1) +
+    geom_text(aes(label = percent(pct, accuracy = 0.1)),
+        position = position_stack(vjust = 0.5),
+        size = 5, fontface = "bold", color = "white"
+    ) +
+    labs(
+        title = "Percentatge de cancel·lacions per tipus de dipòsit",
+        x = NULL, y = NULL
+    ) +
+    theme_void() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        # text de les marques dels eixos
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        # fons transparents
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.background = element_rect(fill = "transparent", color = NA),
+        legend.box.background = element_rect(fill = "transparent", color = NA),
+        legend.key = element_rect(fill = "transparent", color = NA),
+        # text dels títols dels eixos
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        # text del facet
+        strip.text = element_text(size = 24),
+        # llegenda
+        legend.position = "bottom",
+        legend.text = element_text(size = 20),
+        legend.title = element_blank()
+    )
+ggsave("img/cancellation_by_deposit.svg",
+    plot = p,
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+### PART II: ESTACIONALITAT I OCUPACIÓ
+
+**Pic d'Ocupació: Maig-Octubre i Nadal:**
+
+```{r}
+# Gràfica: Ocupació mensual
+monthly_occupancy <- xx |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    filter(year(stay_dates) == 2016) |>
+    group_by(month = month(stay_dates)) |>
+    summarise(
+        avg_occupancy = round((100 * n()) / (360 * days_in_month(
+            as.Date(paste0("2016-", month(stay_dates), "-01"))
+        )
+        ), 1),
+        total_reservations = n()
+    )
+monthly_occupancy[!duplicated(monthly_occupancy), ]
+
+ggplot(
+    monthly_occupancy[!duplicated(monthly_occupancy), ],
+    aes(x = factor(month, labels = month.name), y = avg_occupancy)
+) +
+    geom_line(color = "steelblue", linewidth = 1.5) +
+    geom_point(size = 4, color = "steelblue") +
+    geom_text(aes(label = paste0(avg_occupancy, "%")), vjust = -1, size = 5) +
+    labs(
+        title = "Estacionalitat: Ocupació mitjana per mes",
+        x = "Mes",
+        y = "Ocupació (%)"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/monthly_occupancy.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Valls de Demanda**
+
+```{r}
+# Gràfica: Períodes de baix i alt ocupació
+demand_pattern <- xx |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    mutate(
+        month = month(stay_dates),
+        year = year(stay_dates)
+    ) |>
+    filter(year == 2016) |>
+    mutate(season = case_when(
+        month %in% c(5, 6, 7, 8, 9, 10) ~ "Alta (Maig-Octubre)",
+        month %in% c(12, 1) ~ "Nadal",
+        TRUE ~ "Baixa (Nov-Febrer)"
+    )) |>
+    group_by(season) |>
+    summarise(
+        avg_occupancy = round((mean((100 * n()) / (360 * case_when(
+            season == "Baixa (Nov-Febrer)" ~ 119,
+            season == "Nadal" ~ 62,
+            TRUE ~ 184
+        )))), 1),
+        year = year(stay_dates),
+        total_bookings = n()
+    )
+demand_pattern[!duplicated(demand_pattern), ]
+
+ggplot(demand_pattern[!duplicated(demand_pattern), ], aes(
+    x = factor(season, levels = c("Alta (Maig-Octubre)", "Nadal", "Baixa (Nov-Febrer)")),
+    y = avg_occupancy, fill = season
+)) +
+    geom_col() +
+    geom_text(aes(label = paste0(avg_occupancy, "%")), vjust = -0.5, size = 6) +
+    labs(
+        title = "Patró estacional: Ocupació per temporada",
+        x = "Temporada",
+        y = "Ocupació (%)"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/seasonal_pattern.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Patró Consistent**
+
+```{r}
+# Gràfica: Tendència estacional per any
+yearly_monthly_occupancy <- xx |>
+    filter(is_canceled == 0) |>
+    rowwise() |>
+    mutate(stay_dates = list(seq.Date(dia, by = "day", length.out = stay_days))) |>
+    unnest(cols = c(stay_dates)) |>
+    mutate(
+        year = year(stay_dates),
+        month = month(stay_dates)
+    ) |>
+    group_by(year, month) |>
+    summarise(
+        total_stays = n(),
+        avg_occupancy = round((100 * n()) /
+            (360 * days_in_month(as.Date(paste(year, month, "01", sep = "-")))), 1),
+        .groups = "drop"
+    )
+yearly_monthly_occupancy[!duplicated(yearly_monthly_occupancy), ]
+
+ggplot(
+    yearly_monthly_occupancy[!duplicated(yearly_monthly_occupancy), ],
+    aes(x = month, y = avg_occupancy, color = factor(year), group = year)
+) +
+    scale_x_continuous(breaks = 1:12, labels = month.abb) +
+    geom_line(linewidth = 1.5) +
+    geom_point(size = 3) +
+    labs(
+        title = "Consistència estacional",
+        x = "Mes",
+        y = "Ocupació (%)",
+        color = "Any"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        axis.title = element_blank()
+    )
+
+ggsave("img/yearly_seasonality.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Nits d'Estada: Resort Supera City en Durada**
+
+```{r}
+# Gràfica: Durada mitjana d'estada per hotel
+stay_duration <- xx |>
+    filter(is_canceled == 0) |>
+    mutate(total_stay = stays_in_weekend_nights + stays_in_week_nights) |>
+    group_by(hotel) |>
+    summarise(
+        avg_stay = round(mean(total_stay), 1),
+        median_stay = round(median(total_stay), 1),
+        sd_stay = round(sd(total_stay), 1)
+    )
+
+ggplot(
+    xx |> mutate(total_stay = stays_in_weekend_nights + stays_in_week_nights),
+    aes(x = hotel, y = total_stay, fill = hotel)
+) +
+    geom_violin(alpha = 0.7) +
+    geom_boxplot(alpha = 0.7, outliers = FALSE) +
+    coord_flip() +
+    labs(
+        title = "Durada de l'estada: City vs. Resort",
+        x = "Tipus d'hotel",
+        y = "Nits d'estada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/stay_duration.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+### PART III: SEGMENTACIÓ DE CLIENTS
+
+**Turoperadors (TA/TO): Volum Alt, Cancel·lacions Altes**
+
+```{r}
+# Gràfica: Reserves i cancel·lacions per canal de distribució
+distribution_channels <- xx |>
+    group_by(market_segment) |>
+    summarise(
+        total_bookings = n(),
+        cancellation_number = sum(as.numeric(is_canceled) - 1),
+        cancellation_rate = round(mean(as.numeric(is_canceled) - 1) * 100, 1),
+        avg_stay = round(mean(stays_in_weekend_nights + stays_in_week_nights), 1)
+    ) |>
+    arrange(desc(total_bookings))
+distribution_channels
+
+ggplot(distribution_channels, aes(
+    x = reorder(market_segment, -total_bookings),
+    y = cancellation_rate, fill = market_segment
+)) +
+    geom_col() +
+    geom_text(aes(label = paste0(cancellation_rate, "%")), vjust = -0.5, size = 5) +
+    labs(
+        title = "Taxa de cancel·lació per segment de mercat",
+        x = "Segment de mercat",
+        y = "Taxa de cancel·lació (%)"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text.x = element_text(size = 16, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/market_segment_cancellation.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Clients Transitoris: Alta Flexibilitat, Risc Elevat**
+
+```{r}
+# Gràfica: Lead time vs. Cancel·lació per segment
+lead_time_cancellation <- xx |>
+    mutate(lead_time_category = cut(lead_time,
+        breaks = c(0, 7, 30, 90, 500),
+        labels = c("0-7 dies", "8-30 dies", "31-90 dies", ">90 dies")
+    )) |>
+    group_by(lead_time_category) |>
+    summarise(
+        cancellation_rate = round(mean(as.numeric(is_canceled) - 1) * 100, 1),
+        total_bookings = n()
+    )
+
+ggplot(lead_time_cancellation, aes(x = lead_time_category, y = cancellation_rate, fill = lead_time_category)) +
+    geom_col() +
+    geom_text(aes(label = paste0(cancellation_rate, "%")), vjust = -0.5, size = 5) +
+    labs(
+        title = "Cancel·lacions segons temps d'anticipació de reserva",
+        x = "Anticipació (Lead time)",
+        y = "Taxa de cancel·lació (%)"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/lead_time_cancellation.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Clients Locals: Patrons de Reserva Curts**
+
+```{r}
+# Gràfica: Durada d'estada per origen
+stay_by_origin <- xx |>
+    mutate(
+        origin = if_else(country == "PRT", "Portugal", "Internacional"),
+        total_stay = stays_in_weekend_nights + stays_in_week_nights
+    ) |>
+    group_by(origin) |>
+    summarise(
+        avg_stay = round(mean(total_stay), 1),
+        median_stay = round(median(total_stay), 1)
+    )
+
+ggplot(
+    xx |>
+        mutate(
+            origin = if_else(country == "PRT", "Portugal", "Internacional"),
+            total_stay = stays_in_weekend_nights + stays_in_week_nights
+        ),
+    aes(x = origin, y = total_stay, fill = origin)
+) +
+    geom_violin(alpha = 0.7) +
+    geom_boxplot(alpha = 0.7, outliers = FALSE) +
+    coord_flip() +
+    labs(
+        title = "Durada d'estada: Portuguesos vs. Internacionals",
+        x = "Origen",
+        y = "Nits d'estada"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/stay_by_origin.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+```
+
+**Més Enllà de TA/TO: Construir Canals Alternatius**
+
+```{r}
+# Gràfica: Distribució de reserves per canal i cancel·lacions
+channel_distribution <- xx |>
+    group_by(booking_changes) |>
+    summarise(
+        name = first(booking_changes),
+        total_bookings = n(),
+        cancellation_rate = round(mean(as.numeric(is_canceled) - 1) * 100, 1),
+        percentage = round(n() / nrow(xx) * 100, 1)
+    ) |>
+    arrange(desc(total_bookings))
+channel_distribution
+
+# grafica de bombolles de channel_distribution
+ggplot(channel_distribution, aes(
+    x = booking_changes,
+    y = cancellation_rate,
+    size = total_bookings,
+    color = booking_changes
+)) +
+    geom_point(alpha = 0.7) +
+    labs(
+        title = "Distribució de reserves: Flexibilitat de clients",
+        x = "Canvis en la reserva",
+        y = "Taxa de cancel·lació (%)",
+        size = "Total de reserves",
+        color = "Canvis en la reserva"
+    ) +
+    geom_text(aes(label = ifelse(percentage > 10, paste0(percentage, "%"), "")),
+        vjust = -1, size = 6
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "right"
+    )
+ggsave("img/client_flexibility_bubble.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+
+
+# grafica de sectors de channel_distribution
+ggplot(channel_distribution, aes(x = "", y = percentage, fill = total_bookings)) +
+    geom_col(width = 1, color = "white") +
+    coord_polar(theta = "y") +
+    labs(
+        title = "Distribució de reserves: Flexibilitat de clients",
+        fill = "Tipus de client"
+    ) +
+    theme_minimal() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "right",
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank()
+    )
+ggsave("img/client_flexibility_pie.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
+# Simplificar a tres categories: 0, 1-2, 3+
+channel_summary <- xx |>
+    mutate(channel_type = case_when(
+        booking_changes == 0 ~ "Sense canvis",
+        booking_changes >= 1 & booking_changes <= 2 ~ "1-2 canvis",
+        booking_changes >= 3 ~ "3+ canvis"
+    )) |>
+    group_by(channel_type) |>
+    summarise(
+        total_bookings = n(),
+        cancellation_rate = round(mean(as.numeric(is_canceled) - 1) * 100, 1),
+        percentage = round(n() / nrow(xx) * 100, 1)
+    )
+channel_summary
+
+ggplot(channel_summary, aes(x = reorder(channel_type, -total_bookings), y = percentage, fill = channel_type)) +
+    geom_col() +
+    geom_text(aes(label = paste0(percentage, "%")), vjust = -0.5, size = 5) +
+    labs(
+        title = "Distribució de reserves: Flexibilitat de clients",
+        x = "Tipus de client",
+        y = "Percentatge de reserves (%)"
+    ) +
+    theme_void() +
+    theme(
+        plot.title = element_text(hjust = 0, size = 48),
+        axis.text = element_text(size = 18),
+        panel.background = element_rect(fill = "transparent", color = NA),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "none",
+        axis.title = element_blank()
+    )
+
+ggsave("img/client_flexibility.svg",
+    plot = last_plot(),
+    width = 16, height = 9,
+    bg = "transparent"
+)
 ```
